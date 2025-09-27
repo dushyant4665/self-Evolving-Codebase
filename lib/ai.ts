@@ -80,27 +80,48 @@ export class AIService {
     console.log('Has Tests:', fileAnalysis.hasTests)
     console.log('File Types:', fileAnalysis.fileTypes)
 
-    // Generate suggestions based on comprehensive analysis
-    if (fileAnalysis.codeQualityIssues.length > 0) {
-      // Fix code quality issues first
-      const issue = fileAnalysis.codeQualityIssues[0]
-      const filePath = issue.split(':')[0]
-      const file = files.find(f => f.path === filePath)
+    // FORCE CODE-BASED SUGGESTIONS ONLY
+    const codeFiles = files.filter(f => 
+      !f.path.toLowerCase().includes('readme') &&
+      !f.path.toLowerCase().includes('.md') &&
+      (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx'))
+    )
+    
+    console.log('🔍 Available code files for analysis:', codeFiles.map(f => f.path))
+    
+    if (codeFiles.length > 0) {
+      // Always prioritize code quality issues in actual code files
+      const codeFileWithIssues = codeFiles.find(f => 
+        fileAnalysis.codeQualityIssues.some(issue => issue.includes(f.path))
+      )
       
-      if (file) {
+      if (codeFileWithIssues) {
+        const issue = fileAnalysis.codeQualityIssues.find(issue => issue.includes(codeFileWithIssues.path))!
         suggestion = {
           type: 'bugfix',
-          title: `Fix code quality issue in ${filePath}`,
+          title: `Fix code quality in ${codeFileWithIssues.path}`,
           description: issue,
           reasoning: `Improving code quality by addressing: ${issue}`,
           files: [{
-            path: filePath,
+            path: codeFileWithIssues.path,
             action: 'modify',
-            content: this.fixCodeQualityIssue(file, issue)
+            content: this.fixCodeQualityIssue(codeFileWithIssues, issue)
           }]
         }
       } else {
-        suggestion = this.getDefaultSuggestion(fileAnalysis, files)
+        // Pick largest code file for improvement
+        const targetFile = codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
+        suggestion = {
+          type: 'refactor',
+          title: `Improve ${targetFile.path}`,
+          description: `Clean up code and add error handling in ${targetFile.path}`,
+          reasoning: `${targetFile.path} can be improved with better error handling and code cleanup`,
+          files: [{
+            path: targetFile.path,
+            action: 'modify',
+            content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: General code improvements needed`)
+          }]
+        }
       }
     } else if (fileAnalysis.missingFiles.length > 0) {
       // Add missing important files
