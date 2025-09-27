@@ -62,14 +62,79 @@ export class AIService {
   }
 
   private generateIntelligentSuggestion(files: { path: string; content: string }[]): CodeSuggestion {
-    // Generate intelligent suggestion based on actual file analysis
+    console.log('=== DEEP FILE ANALYSIS ===')
+    
+    // Analyze all file types and patterns
+    const fileAnalysis = this.analyzeCodebase(files)
+    console.log('File analysis:', fileAnalysis)
+    
+    let suggestion: CodeSuggestion
+
+    // Generate suggestions based on comprehensive analysis
+    if (fileAnalysis.codeQualityIssues.length > 0) {
+      // Fix code quality issues first
+      const issue = fileAnalysis.codeQualityIssues[0]
+      const filePath = issue.split(':')[0]
+      const file = files.find(f => f.path === filePath)
+      
+      if (file) {
+        suggestion = {
+          type: 'bugfix',
+          title: `Fix code quality issue in ${filePath}`,
+          description: issue,
+          reasoning: `Improving code quality by addressing: ${issue}`,
+          files: [{
+            path: filePath,
+            action: 'modify',
+            content: this.fixCodeQualityIssue(file, issue)
+          }]
+        }
+      } else {
+        suggestion = this.getDefaultSuggestion(fileAnalysis, files)
+      }
+    } else if (fileAnalysis.missingFiles.length > 0) {
+      // Add missing important files
+      const missingFile = fileAnalysis.missingFiles[0]
+      suggestion = {
+        type: 'feature',
+        title: `Add missing ${missingFile}`,
+        description: `Create ${missingFile} to improve project structure and development workflow`,
+        reasoning: `${missingFile} is essential for ${fileAnalysis.mainLanguage} projects to manage dependencies and project configuration`,
+        files: [{
+          path: missingFile,
+          action: 'create',
+          content: this.generateFileContent(missingFile, fileAnalysis)
+        }]
+      }
+    } else if (!fileAnalysis.hasTests) {
+      // Add tests if missing
+      const mainFile = this.findMainFile(files, fileAnalysis)
+      if (mainFile) {
+        suggestion = {
+          type: 'feature',
+          title: `Add unit tests for ${mainFile.path}`,
+          description: `Create comprehensive unit tests to ensure code reliability and catch bugs early`,
+          reasoning: `Testing is crucial for maintaining code quality in ${fileAnalysis.mainLanguage} projects`,
+          files: [{
+            path: this.getTestFilePath(mainFile.path, fileAnalysis),
+            action: 'create',
+            content: this.generateTestContent(mainFile, fileAnalysis)
+          }]
+        }
+      } else {
+        suggestion = this.getDefaultSuggestion(fileAnalysis, files)
+      }
+    } else {
+      // Suggest performance or feature improvements
+      suggestion = this.getDefaultSuggestion(fileAnalysis, files)
+    }
+
+    // Fallback to simple suggestions if analysis fails
     const hasReadme = files.some(f => f.path.toLowerCase().includes('readme'))
     const hasPackageJson = files.some(f => f.path.toLowerCase().includes('package.json'))
     const hasTsFiles = files.some(f => f.path.endsWith('.ts') || f.path.endsWith('.tsx'))
     
-    let suggestion: CodeSuggestion
-    
-    if (hasPackageJson && !files.some(f => f.path === '.gitignore')) {
+    if (!suggestion && hasPackageJson && !files.some(f => f.path === '.gitignore')) {
       // Suggest adding .gitignore if package.json exists but .gitignore doesn't
       suggestion = {
         type: 'feature',
@@ -241,6 +306,353 @@ ${firstFile.content}
     console.log('Files to modify:', suggestion.files.map(f => f.path))
     
     return suggestion
+  }
+
+  private analyzeCodebase(files: { path: string; content: string }[]) {
+    const analysis = {
+      languages: {} as Record<string, number>,
+      frameworks: [] as string[],
+      hasTests: false,
+      hasConfig: false,
+      hasDocumentation: false,
+      codeQualityIssues: [] as string[],
+      missingFiles: [] as string[],
+      mainLanguage: '',
+      fileTypes: {} as Record<string, string[]>,
+      totalLines: 0
+    }
+
+    // Analyze each file
+    files.forEach(file => {
+      const ext = this.getFileExtension(file.path)
+      const lang = this.getLanguageFromExtension(ext)
+      const lines = file.content.split('\n').length
+      
+      analysis.totalLines += lines
+      
+      // Count languages
+      if (lang) {
+        analysis.languages[lang] = (analysis.languages[lang] || 0) + lines
+      }
+      
+      // Group by file types
+      if (!analysis.fileTypes[ext]) {
+        analysis.fileTypes[ext] = []
+      }
+      analysis.fileTypes[ext].push(file.path)
+      
+      // Check for frameworks and patterns
+      this.detectFrameworks(file, analysis)
+      this.detectQualityIssues(file, analysis)
+    })
+
+    // Determine main language
+    analysis.mainLanguage = Object.keys(analysis.languages).reduce((a, b) => 
+      analysis.languages[a] > analysis.languages[b] ? a : b, ''
+    )
+
+    // Check for missing important files
+    this.checkMissingFiles(files, analysis)
+
+    return analysis
+  }
+
+  private getFileExtension(filePath: string): string {
+    const parts = filePath.split('.')
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
+  }
+
+  private getLanguageFromExtension(ext: string): string {
+    const langMap: Record<string, string> = {
+      'js': 'JavaScript',
+      'jsx': 'JavaScript',
+      'ts': 'TypeScript', 
+      'tsx': 'TypeScript',
+      'py': 'Python',
+      'cpp': 'C++',
+      'cc': 'C++',
+      'cxx': 'C++',
+      'c': 'C',
+      'java': 'Java',
+      'cs': 'C#',
+      'php': 'PHP',
+      'rb': 'Ruby',
+      'go': 'Go',
+      'rs': 'Rust',
+      'swift': 'Swift',
+      'kt': 'Kotlin',
+      'scala': 'Scala',
+      'html': 'HTML',
+      'css': 'CSS',
+      'scss': 'SCSS',
+      'sass': 'SASS',
+      'vue': 'Vue',
+      'svelte': 'Svelte'
+    }
+    return langMap[ext] || ''
+  }
+
+  private detectFrameworks(file: { path: string; content: string }, analysis: any) {
+    const content = file.content.toLowerCase()
+    
+    // React
+    if (content.includes('import react') || content.includes('from \'react\'')) {
+      if (!analysis.frameworks.includes('React')) analysis.frameworks.push('React')
+    }
+    
+    // Vue
+    if (content.includes('<template>') || content.includes('vue')) {
+      if (!analysis.frameworks.includes('Vue')) analysis.frameworks.push('Vue')
+    }
+    
+    // Angular
+    if (content.includes('@component') || content.includes('angular')) {
+      if (!analysis.frameworks.includes('Angular')) analysis.frameworks.push('Angular')
+    }
+    
+    // Next.js
+    if (content.includes('next/') || file.path.includes('next.config')) {
+      if (!analysis.frameworks.includes('Next.js')) analysis.frameworks.push('Next.js')
+    }
+    
+    // Express
+    if (content.includes('express') && content.includes('app.')) {
+      if (!analysis.frameworks.includes('Express')) analysis.frameworks.push('Express')
+    }
+    
+    // Django
+    if (content.includes('django') || content.includes('from django')) {
+      if (!analysis.frameworks.includes('Django')) analysis.frameworks.push('Django')
+    }
+    
+    // Flask
+    if (content.includes('from flask') || content.includes('Flask(')) {
+      if (!analysis.frameworks.includes('Flask')) analysis.frameworks.push('Flask')
+    }
+
+    // Tests
+    if (file.path.includes('test') || file.path.includes('spec') || 
+        content.includes('describe(') || content.includes('it(') ||
+        content.includes('pytest') || content.includes('unittest')) {
+      analysis.hasTests = true
+    }
+
+    // Config files
+    if (file.path.includes('config') || file.path.includes('.env') ||
+        file.path.includes('package.json') || file.path.includes('requirements.txt')) {
+      analysis.hasConfig = true
+    }
+
+    // Documentation
+    if (file.path.toLowerCase().includes('readme') || file.path.includes('docs/')) {
+      analysis.hasDocumentation = true
+    }
+  }
+
+  private detectQualityIssues(file: { path: string; content: string }, analysis: any) {
+    const content = file.content
+    
+    // No error handling
+    if (content.includes('fetch(') && !content.includes('catch')) {
+      analysis.codeQualityIssues.push(`${file.path}: Missing error handling for fetch calls`)
+    }
+    
+    // Console.log in production
+    if (content.includes('console.log') && !file.path.includes('test')) {
+      analysis.codeQualityIssues.push(`${file.path}: Contains console.log statements`)
+    }
+    
+    // Long functions (>50 lines)
+    const functions = content.match(/function\s+\w+|=>\s*{/g)
+    if (functions && content.split('\n').length > 50) {
+      analysis.codeQualityIssues.push(`${file.path}: Contains long functions`)
+    }
+    
+    // No comments in complex files
+    if (content.split('\n').length > 30 && !content.includes('//') && !content.includes('/*')) {
+      analysis.codeQualityIssues.push(`${file.path}: Lacks code comments`)
+    }
+  }
+
+  private checkMissingFiles(files: { path: string; content: string }[], analysis: any) {
+    const filePaths = files.map(f => f.path.toLowerCase())
+    
+    // Check based on main language
+    if (analysis.mainLanguage === 'JavaScript' || analysis.mainLanguage === 'TypeScript') {
+      if (!filePaths.some(p => p.includes('package.json'))) {
+        analysis.missingFiles.push('package.json')
+      }
+      if (!filePaths.some(p => p.includes('.gitignore'))) {
+        analysis.missingFiles.push('.gitignore')
+      }
+      if (!filePaths.some(p => p.includes('tsconfig.json')) && analysis.mainLanguage === 'TypeScript') {
+        analysis.missingFiles.push('tsconfig.json')
+      }
+    }
+    
+    if (analysis.mainLanguage === 'Python') {
+      if (!filePaths.some(p => p.includes('requirements.txt') || p.includes('pyproject.toml'))) {
+        analysis.missingFiles.push('requirements.txt')
+      }
+      if (!filePaths.some(p => p.includes('.gitignore'))) {
+        analysis.missingFiles.push('.gitignore')
+      }
+    }
+    
+    if (analysis.mainLanguage === 'Java') {
+      if (!filePaths.some(p => p.includes('pom.xml') || p.includes('build.gradle'))) {
+        analysis.missingFiles.push('build configuration (pom.xml or build.gradle)')
+      }
+    }
+    
+    // Common missing files
+    if (!filePaths.some(p => p.includes('readme'))) {
+      analysis.missingFiles.push('README.md')
+    }
+  }
+
+  private fixCodeQualityIssue(file: { path: string; content: string }, issue: string): string {
+    let content = file.content
+    
+    if (issue.includes('Missing error handling for fetch calls')) {
+      // Add try-catch around fetch calls
+      content = content.replace(
+        /fetch\([^)]+\)/g, 
+        match => `try {\n      const response = await ${match}\n      if (!response.ok) throw new Error('Request failed')\n      return response\n    } catch (error) {\n      console.error('Fetch error:', error)\n      throw error\n    }`
+      )
+    }
+    
+    if (issue.includes('Contains console.log statements')) {
+      // Replace console.log with proper logging
+      content = content.replace(/console\.log\(/g, '// console.log(')
+    }
+    
+    if (issue.includes('Lacks code comments')) {
+      // Add basic comments
+      const lines = content.split('\n')
+      const commentedLines = lines.map(line => {
+        if (line.trim().startsWith('function') || line.trim().startsWith('const') || line.trim().startsWith('class')) {
+          return `// ${line.trim()}\n${line}`
+        }
+        return line
+      })
+      content = commentedLines.join('\n')
+    }
+    
+    return content
+  }
+
+  private getDefaultSuggestion(analysis: any, files: { path: string; content: string }[]): CodeSuggestion {
+    // Suggest improvements based on main language
+    if (analysis.mainLanguage === 'TypeScript' || analysis.mainLanguage === 'JavaScript') {
+      return {
+        type: 'optimization',
+        title: 'Add performance optimization',
+        description: 'Implement code splitting and lazy loading for better performance',
+        reasoning: `${analysis.mainLanguage} applications benefit from performance optimizations`,
+        files: [{
+          path: 'utils/performance.ts',
+          action: 'create',
+          content: `// Performance utilities\nexport const lazyLoad = (component: () => Promise<any>) => {\n  return React.lazy(component)\n}\n\nexport const debounce = (func: Function, wait: number) => {\n  let timeout: NodeJS.Timeout\n  return (...args: any[]) => {\n    clearTimeout(timeout)\n    timeout = setTimeout(() => func.apply(this, args), wait)\n  }\n}`
+        }]
+      }
+    }
+    
+    if (analysis.mainLanguage === 'Python') {
+      return {
+        type: 'feature',
+        title: 'Add logging configuration',
+        description: 'Implement proper logging for better debugging and monitoring',
+        reasoning: 'Python applications need structured logging for production environments',
+        files: [{
+          path: 'logging_config.py',
+          action: 'create',
+          content: `import logging\nimport sys\n\ndef setup_logging(level=logging.INFO):\n    logging.basicConfig(\n        level=level,\n        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',\n        handlers=[\n            logging.FileHandler('app.log'),\n            logging.StreamHandler(sys.stdout)\n        ]\n    )\n    return logging.getLogger(__name__)`
+        }]
+      }
+    }
+    
+    // Generic improvement
+    return {
+      type: 'feature',
+      title: 'Add code documentation',
+      description: 'Improve code documentation and add inline comments',
+      reasoning: 'Better documentation improves code maintainability',
+      files: [{
+        path: 'CONTRIBUTING.md',
+        action: 'create',
+        content: `# Contributing Guidelines\n\n## Code Style\n- Follow language-specific conventions\n- Add comments for complex logic\n- Write meaningful commit messages\n\n## Testing\n- Write tests for new features\n- Ensure all tests pass before submitting\n\n## Documentation\n- Update README for new features\n- Document API changes`
+      }]
+    }
+  }
+
+  private findMainFile(files: { path: string; content: string }[], analysis: any) {
+    // Find the most important file to test
+    const candidates = files.filter(f => 
+      !f.path.includes('test') && 
+      !f.path.includes('spec') && 
+      (f.path.endsWith('.js') || f.path.endsWith('.ts') || f.path.endsWith('.py') || f.path.endsWith('.java'))
+    )
+    
+    // Prefer files with more lines (likely more important)
+    return candidates.sort((a, b) => b.content.length - a.content.length)[0]
+  }
+
+  private getTestFilePath(filePath: string, analysis: any): string {
+    const ext = this.getFileExtension(filePath)
+    const baseName = filePath.replace(/\.[^/.]+$/, '')
+    
+    if (analysis.mainLanguage === 'JavaScript' || analysis.mainLanguage === 'TypeScript') {
+      return `${baseName}.test.${ext}`
+    }
+    if (analysis.mainLanguage === 'Python') {
+      return `test_${baseName.split('/').pop()}.py`
+    }
+    if (analysis.mainLanguage === 'Java') {
+      return `${baseName}Test.java`
+    }
+    
+    return `${baseName}.test.${ext}`
+  }
+
+  private generateTestContent(file: { path: string; content: string }, analysis: any): string {
+    const fileName = file.path.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'module'
+    
+    if (analysis.mainLanguage === 'JavaScript' || analysis.mainLanguage === 'TypeScript') {
+      return `import { describe, it, expect } from '@jest/globals'\nimport { ${fileName} } from './${fileName}'\n\ndescribe('${fileName}', () => {\n  it('should work correctly', () => {\n    // Add your test cases here\n    expect(true).toBe(true)\n  })\n\n  it('should handle edge cases', () => {\n    // Test edge cases\n    expect(true).toBe(true)\n  })\n})`
+    }
+    
+    if (analysis.mainLanguage === 'Python') {
+      return `import unittest\nfrom ${fileName} import *\n\nclass Test${fileName.charAt(0).toUpperCase() + fileName.slice(1)}(unittest.TestCase):\n    def test_basic_functionality(self):\n        # Add your test cases here\n        self.assertTrue(True)\n    \n    def test_edge_cases(self):\n        # Test edge cases\n        self.assertTrue(True)\n\nif __name__ == '__main__':\n    unittest.main()`
+    }
+    
+    return `// Test file for ${fileName}\n// Add your test cases here`
+  }
+
+  private generateFileContent(fileName: string, analysis: any): string {
+    if (fileName === '.gitignore') {
+      let content = '# Dependencies\nnode_modules/\n\n# Build outputs\ndist/\nbuild/\n\n# Environment\n.env\n.env.local\n\n# Logs\n*.log\n\n# OS\n.DS_Store\nThumbs.db'
+      
+      if (analysis.mainLanguage === 'Python') {
+        content += '\n\n# Python\n__pycache__/\n*.pyc\n*.pyo\n*.pyd\n.Python\nvenv/\n.venv/'
+      }
+      
+      if (analysis.mainLanguage === 'Java') {
+        content += '\n\n# Java\n*.class\ntarget/\n*.jar'
+      }
+      
+      return content
+    }
+    
+    if (fileName === 'requirements.txt') {
+      return '# Python dependencies\n# Add your package requirements here\n# Example:\n# requests==2.28.1\n# flask==2.2.2'
+    }
+    
+    if (fileName === 'tsconfig.json') {
+      return `{\n  "compilerOptions": {\n    "target": "ES2020",\n    "lib": ["dom", "dom.iterable", "ES6"],\n    "allowJs": true,\n    "skipLibCheck": true,\n    "strict": true,\n    "forceConsistentCasingInFileNames": true,\n    "noEmit": true,\n    "esModuleInterop": true,\n    "module": "esnext",\n    "moduleResolution": "node",\n    "resolveJsonModule": true,\n    "isolatedModules": true,\n    "jsx": "preserve",\n    "incremental": true\n  },\n  "include": ["**/*.ts", "**/*.tsx"],\n  "exclude": ["node_modules"]\n}`
+    }
+    
+    return `# ${fileName}\n\nThis file was generated to improve project structure.`
   }
 
   private buildPrompt(repoContext: string, files: { path: string; content: string }[]): string {
