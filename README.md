@@ -86,8 +86,4 @@ Fork this repository, make changes, and submit a pull request.
 
 ## License
 
-<<<<<<< HEAD
 MIT License
-=======
-MIT License
->>>>>>> 3693b3c5e4e64ffffcde6997d8b1ed265829884f
