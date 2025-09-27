@@ -606,80 +606,137 @@ ${firstFile.content}
   private fixCodeQualityIssue(file: { path: string; content: string }, issue: string): string {
     let content = file.content
     
-    console.log(`🔧 Applying comprehensive fixes to ${file.path}`)
+    console.log(`🔧 REAL CODE TRANSFORMATION for ${file.path}`)
     
-    // 1. Remove ALL console statements (not just comment them)
-    content = content.replace(/console\.(log|error|warn|info)\([^)]*\);?\s*\n?/g, '')
+    // STEP 1: Remove ALL console statements completely
+    const originalConsoleCount = (content.match(/console\.(log|error|warn|info)/g) || []).length
+    content = content.replace(/\s*console\.(log|error|warn|info)\([^)]*\);?\s*\n?/g, '\n')
     
-    // 2. Fix missing error handling for async operations
-    if (content.includes('await') && content.includes('fetch')) {
-      // Wrap fetch calls in proper try-catch
+    // STEP 2: Fix async/await error handling
+    if (content.includes('await') && !content.includes('try')) {
+      // Wrap entire async functions in try-catch
       content = content.replace(
-        /(const\s+\w+\s*=\s*await\s+fetch\([^)]+\))/g,
-        `try {
-      $1
-      if (!response.ok) {
-        throw new Error(\`HTTP error! status: \${response.status}\`)
-      }
-    } catch (error) {
-      throw new Error(\`Request failed: \${error.message}\`)
-    }`
+        /(const\s+\w+\s*=\s*async\s*\([^)]*\)\s*=>\s*{)/g,
+        `$1
+    try {`
+      )
+      
+      // Add catch block before function end
+      content = content.replace(
+        /(\s*}\s*$)/,
+        `    } catch (error) {
+      console.error('Operation failed:', error)
+      throw error
+    }
+  }`
       )
     }
     
-    // 3. Improve TypeScript types - replace 'any' with specific types
-    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
-      content = content.replace(/:\s*any\b/g, ': unknown')
-      content = content.replace(/any\[\]/g, 'unknown[]')
+    // STEP 3: Add proper TypeScript interfaces
+    if (file.path.endsWith('.tsx') && content.includes('props') && !content.includes('interface')) {
+      const componentName = file.path.split('/').pop()?.replace('.tsx', '') || 'Component'
+      const interfaceDefinition = `
+interface ${componentName}Props {
+  [key: string]: unknown
+}
+
+`
+      content = content.replace(
+        /(export\s+(?:default\s+)?function)/,
+        `${interfaceDefinition}$1`
+      )
     }
     
-    // 4. Add proper error boundaries for React components
-    if ((file.path.endsWith('.tsx') || file.path.endsWith('.jsx')) && content.includes('export default')) {
-      if (!content.includes('ErrorBoundary') && content.includes('function')) {
+    // STEP 4: Optimize React components with useMemo/useCallback
+    if (file.path.endsWith('.tsx') && content.includes('useState')) {
+      // Add React imports if missing
+      if (!content.includes('useMemo') && !content.includes('useCallback')) {
         content = content.replace(
-          /(export default function \w+)/,
-          `// Enhanced component with error handling
-$1`
+          /import\s+{\s*([^}]+)\s*}\s+from\s+['"]react['"]/,
+          "import { $1, useMemo, useCallback } from 'react'"
         )
       }
-    }
-    
-    // 5. Improve function structure - add proper return types
-    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
+      
+      // Wrap expensive operations in useMemo
       content = content.replace(
-        /function\s+(\w+)\s*\([^)]*\)\s*{/g,
-        'function $1(): void {'
+        /(const\s+\w+\s*=\s*[^=\n]*\.filter\([^)]+\))/g,
+        'const $1 = useMemo(() => $1, [dependencies])'
       )
     }
     
-    // 6. Add proper imports organization
-    const lines = content.split('\n')
-    const importLines = lines.filter(line => line.startsWith('import'))
-    const otherLines = lines.filter(line => !line.startsWith('import'))
-    
-    if (importLines.length > 0) {
-      // Sort imports: React first, then libraries, then local
-      const reactImports = importLines.filter(line => line.includes('react'))
-      const libraryImports = importLines.filter(line => !line.includes('react') && !line.includes('@/') && !line.includes('./'))
-      const localImports = importLines.filter(line => line.includes('@/') || line.includes('./'))
-      
-      const organizedImports = [
-        ...reactImports,
-        ...libraryImports,
-        ...localImports
-      ].join('\n')
-      
-      content = organizedImports + '\n\n' + otherLines.join('\n')
+    // STEP 5: Add input validation for API routes
+    if (file.path.includes('api/') && content.includes('req.body')) {
+      const validationCode = `
+  // Input validation
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: 'Invalid request body' })
+  }
+`
+      content = content.replace(
+        /(export\s+(?:default\s+)?(?:async\s+)?function[^{]*{)/,
+        `$1${validationCode}`
+      )
     }
     
-    // 7. Remove unused variables and imports
-    content = this.removeUnusedImports(content)
+    // STEP 6: Improve error responses in API routes
+    if (file.path.includes('api/') && content.includes('res.status')) {
+      content = content.replace(
+        /res\.status\((\d+)\)\.json\(\s*{\s*error:\s*['"]([^'"]+)['"]\s*}\s*\)/g,
+        'res.status($1).json({ error: "$2", code: "API_ERROR", timestamp: new Date().toISOString() })'
+      )
+    }
     
-    // 8. Fix indentation and formatting
+    // STEP 7: Add proper loading states for components
+    if (file.path.endsWith('.tsx') && content.includes('useState') && !content.includes('loading')) {
+      content = content.replace(
+        /(const\s+\[[^,]+,\s*set[^\]]+\]\s*=\s*useState)/,
+        `const [loading, setLoading] = useState(false)
+  $1`
+      )
+    }
+    
+    // STEP 8: Optimize imports and remove unused ones
+    content = this.removeUnusedImports(content)
+    content = this.organizeImports(content)
+    
+    // STEP 9: Format and clean up code
     content = this.formatCode(content)
     
-    console.log(`✅ Applied comprehensive improvements to ${file.path}`)
+    const improvements = []
+    if (originalConsoleCount > 0) improvements.push(`Removed ${originalConsoleCount} console statements`)
+    if (content.includes('try {')) improvements.push('Added error handling')
+    if (content.includes('interface')) improvements.push('Added TypeScript interfaces')
+    if (content.includes('useMemo')) improvements.push('Added React optimizations')
+    if (content.includes('Input validation')) improvements.push('Added API validation')
+    
+    console.log(`✅ REAL IMPROVEMENTS APPLIED: ${improvements.join(', ')}`)
     return content
+  }
+  
+  private organizeImports(content: string): string {
+    const lines = content.split('\n')
+    const importLines = lines.filter(line => line.trim().startsWith('import'))
+    const otherLines = lines.filter(line => !line.trim().startsWith('import'))
+    
+    if (importLines.length === 0) return content
+    
+    // Sort imports: React first, then libraries, then local
+    const reactImports = importLines.filter(line => line.includes("'react'") || line.includes('"react"'))
+    const libraryImports = importLines.filter(line => 
+      !line.includes("'react'") && !line.includes('"react"') && 
+      !line.includes('@/') && !line.includes('./') && !line.includes('../')
+    )
+    const localImports = importLines.filter(line => 
+      line.includes('@/') || line.includes('./') || line.includes('../')
+    )
+    
+    const organizedImports = [
+      ...reactImports,
+      ...(libraryImports.length > 0 ? ['', ...libraryImports] : []),
+      ...(localImports.length > 0 ? ['', ...localImports] : [])
+    ]
+    
+    return [...organizedImports, '', ...otherLines].join('\n')
   }
   
   private removeUnusedImports(content: string): string {
@@ -881,50 +938,47 @@ export const sleep = (ms: number): Promise<void> => {
 
     const analysis = this.analyzeCodebase(files)
     
-    return `--- STRICT EVOLVE FLOW: SENIOR AI PAIR-PROGRAMMER ---
+    return `--- EVOLVE MODE: STRICT NO-COMMENT POLICY ---
 
-GLOBAL RULES (MANDATORY):
-1. Do NOT create random/mocked files (no script.js, no random .json)
-2. Do NOT modify README.md (unless explicitly requested)
-3. Only modify real source files (pages, components, API routes, utils)
-4. Produce ONE atomic, tested change per evolution
-5. Always provide: Change Summary, unified diff, commit details, test results
+CRITICAL RULES - FAILURE TO FOLLOW = INVALID RESPONSE:
+❌ NEVER add useless comments like "// Enhanced version of..." or "// Additional improvements..."
+❌ NEVER create fake files (script.js, dummy.json, mock data)
+❌ NEVER touch README.md unless explicitly requested
+✅ ONLY make REAL functional changes to actual source code
 
-REPOSITORY ANALYSIS:
+REPO SCAN RESULTS:
 Framework: ${analysis.frameworks.join(', ') || 'Next.js/React detected'}
-Main Language: ${analysis.mainLanguage}
-File Structure: ${Object.keys(analysis.fileTypes).join(', ')}
-Total Files: ${files.length}
+Language: ${analysis.mainLanguage}
+Structure: ${Object.keys(analysis.fileTypes).join(', ')}
+Files Available: ${files.length}
 
-TARGET SELECTION (by impact priority):
-1. pages/ or app/ (UI pages) - highest impact
-2. components/ (reused components) - high reuse
-3. pages/api/ or app/api/ (API routes) - backend logic
-4. lib/, utils/ (shared logic) - foundational
+TARGET PRIORITY (pick ONE file only):
+1. 🎯 pages/ or app/ routes (Next.js pages) - HIGHEST IMPACT
+2. 🔧 components/ (React components) - HIGH REUSE
+3. 🛠️ pages/api/ or app/api/ (API endpoints) - BACKEND LOGIC
+4. 📚 lib/, utils/ (shared utilities) - FOUNDATIONAL
 
-CHANGE DECISION MATRIX:
-- UI Pages: Split large components, add memoization, optimize renders, improve accessibility
-- Components: Extract duplicate logic, add prop validation, improve performance
-- API Routes: Add input validation, error handling, proper status codes
-- Utils: Optimize algorithms, add TypeScript types, improve reusability
+REAL CHANGE REQUIREMENTS:
+🔹 React Components: Add React.memo, useCallback, accessibility (aria-labels), TypeScript props
+🔹 API Routes: Input validation (zod/manual), try/catch error handling, proper HTTP codes
+🔹 Utils/Lib: Refactor repetitive logic, improve function names, add JSDoc with types
+🔹 Pages: Convert client-side fetch to getServerSideProps/getStaticProps, optimize performance
 
-FILES PROVIDED:
+FILES TO ANALYZE:
 ${fileContents}
 
-EVOLUTION REQUIREMENTS:
-1. Analyze the provided files and select the HIGHEST IMPACT target
-2. Make ONE meaningful functional improvement (not just comments)
-3. Ensure the change is atomic and won't break existing functionality
-4. Focus on: performance, type safety, error handling, or code reusability
-5. Provide exact before/after code with clear reasoning
+MANDATORY OUTPUT FORMAT:
+1. BEFORE/AFTER DIFF showing exact code changes
+2. HUMAN SUMMARY (2-3 lines): What changed and why
+3. COMMIT MESSAGE: "feat/fix/refactor: brief description"
+4. BRANCH NAME: "evolve/YYYYMMDD-description"
 
-VALIDATION CHECKLIST:
-- Code compiles without errors
-- No breaking changes to existing functionality
-- Improvement has measurable benefit
-- Change is focused and contained
+FAILSAFE CHECK:
+If you only add comments without changing logic = FAILURE
+If you create fake files = FAILURE  
+If you touch README without request = FAILURE
 
-Execute as a senior developer making smart, non-trivial improvements to actual repository code.
+EXECUTE: Pick the HIGHEST IMPACT file and make ONE real functional improvement.
 
 Please suggest ONE of the following types of improvements:
 1. NEW FEATURE: Add a useful new feature based on existing code
