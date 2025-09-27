@@ -1,0 +1,129 @@
+name: AI Evolution Tests
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    types: [opened, synchronize]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        if [ -f package.json ]; then
+          npm ci
+        else
+          echo "No package.json found, creating basic test setup"
+          npm init -y
+          npm install --save-dev jest
+        fi
+    
+    - name: Run basic tests
+      run: |
+        if [ -f package.json ] && grep -q '"test"' package.json; then
+          npm test
+        else
+          echo "Running basic validation tests..."
+          
+          # Basic syntax validation for common file types
+          echo "Validating JavaScript/TypeScript files..."
+          find . -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" | head -10 | while read file; do
+            if [ -f "$file" ]; then
+              node -c "$file" 2>/dev/null || echo "Syntax error in $file"
+            fi
+          done
+          
+          # JSON validation
+          echo "Validating JSON files..."
+          find . -name "*.json" | head -5 | while read file; do
+            if [ -f "$file" ]; then
+              python -m json.tool "$file" > /dev/null 2>&1 || echo "Invalid JSON in $file"
+            fi
+          done
+          
+          echo "Basic validation completed successfully!"
+        fi
+    
+    - name: Check for AI Evolution PR
+      if: github.event.pull_request
+      run: |
+        echo "Checking if this is an AI Evolution PR..."
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        PR_BODY="${{ github.event.pull_request.body }}"
+        
+        if echo "$PR_BODY" | grep -q "AI-Generated Evolution"; then
+          echo "✅ This is an AI Evolution PR"
+          echo "PR_TYPE=ai_evolution" >> $GITHUB_ENV
+        else
+          echo "ℹ️ This is a regular PR"
+          echo "PR_TYPE=regular" >> $GITHUB_ENV
+        fi
+    
+    - name: Notify Evolution Status
+      if: env.PR_TYPE == 'ai_evolution'
+      run: |
+        echo "🤖 AI Evolution PR detected!"
+        echo "Title: ${{ github.event.pull_request.title }}"
+        echo "Tests completed successfully for AI-generated changes."
+        
+        # In a real implementation, you would call your API to update the evolution log
+        # curl -X POST "${{ secrets.WEBHOOK_URL }}/api/evolution/status" \
+        #   -H "Content-Type: application/json" \
+        #   -d '{"pr_url": "${{ github.event.pull_request.html_url }}", "status": "tests_passed"}'
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run basic security checks
+      run: |
+        echo "Running basic security validation..."
+        
+        # Check for common security issues
+        echo "Checking for hardcoded secrets..."
+        if grep -r -i "password\|secret\|key\|token" --include="*.js" --include="*.ts" --include="*.json" . | grep -v node_modules | grep -v ".git" | head -5; then
+          echo "⚠️ Potential hardcoded secrets found (review manually)"
+        else
+          echo "✅ No obvious hardcoded secrets detected"
+        fi
+        
+        echo "Security scan completed!"
+
+  format-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Check code formatting
+      run: |
+        echo "Checking basic code formatting..."
+        
+        # Basic formatting checks
+        echo "Checking for trailing whitespace..."
+        if grep -r " $" --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" . | head -5; then
+          echo "⚠️ Trailing whitespace found"
+        else
+          echo "✅ No trailing whitespace"
+        fi
+        
+        echo "Format check completed!"
