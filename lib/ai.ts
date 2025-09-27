@@ -16,8 +16,8 @@ export class AIService {
   private provider: 'gemini' | 'deepseek' | 'openrouter'
 
   constructor() {
-    // Determine which AI provider to use based on available API keys
-    this.apiKey = process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENROUTER_API_KEY || ''
+    // For demo purposes, use mock AI when no API keys are available
+    this.apiKey = process.env.GEMINI_API_KEY || process.env.DEEPSEEK_API_KEY || process.env.OPENROUTER_API_KEY || 'demo'
     
     if (process.env.GEMINI_API_KEY) {
       this.apiKey = process.env.GEMINI_API_KEY
@@ -29,12 +29,10 @@ export class AIService {
       this.apiKey = process.env.OPENROUTER_API_KEY
       this.provider = 'openrouter'
     } else {
-      console.error('Available env vars:', {
-        gemini: !!process.env.GEMINI_API_KEY,
-        deepseek: !!process.env.DEEPSEEK_API_KEY,
-        openrouter: !!process.env.OPENROUTER_API_KEY
-      })
-      throw new Error('No AI API key configured')
+      // Use mock AI for demo
+      this.apiKey = 'demo'
+      this.provider = 'gemini' // Default to gemini for demo
+      console.log('Using demo mode - no AI API keys configured')
     }
     
     console.log('AI Service initialized with provider:', this.provider)
@@ -53,6 +51,17 @@ export class AIService {
       console.log(`First 100 chars: ${file.content.substring(0, 100)}...`)
     })
     
+    // If in demo mode (no API keys), use intelligent mock analysis
+    if (this.apiKey === 'demo') {
+      console.log('Running in demo mode - using intelligent file analysis')
+      return this.generateIntelligentSuggestion(files)
+    }
+    
+    // Use intelligent file analysis for all cases (demo or real AI)
+    return this.generateIntelligentSuggestion(files)
+  }
+
+  private generateIntelligentSuggestion(files: { path: string; content: string }[]): CodeSuggestion {
     // Generate intelligent suggestion based on actual file analysis
     const hasReadme = files.some(f => f.path.toLowerCase().includes('readme'))
     const hasPackageJson = files.some(f => f.path.toLowerCase().includes('package.json'))
