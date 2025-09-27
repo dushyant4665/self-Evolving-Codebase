@@ -161,7 +161,7 @@ export function FileTree({ files, selectedFiles, onFileSelect, githubService, re
       <div className="border border-border rounded-lg p-4 max-h-96 overflow-y-auto">
         {files.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <Folder className="h-8 w-8 mx-auto mb-2" />
+            <span className="text-2xl">📁</span>
             <p>No files found</p>
           </div>
         ) : (
