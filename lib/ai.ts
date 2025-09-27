@@ -70,6 +70,16 @@ export class AIService {
     
     let suggestion: CodeSuggestion
 
+    console.log('🔍 DETAILED ANALYSIS RESULTS:')
+    console.log('Main Language:', fileAnalysis.mainLanguage)
+    console.log('Total Lines:', fileAnalysis.totalLines)
+    console.log('Languages:', fileAnalysis.languages)
+    console.log('Frameworks:', fileAnalysis.frameworks)
+    console.log('Code Quality Issues:', fileAnalysis.codeQualityIssues)
+    console.log('Missing Files:', fileAnalysis.missingFiles)
+    console.log('Has Tests:', fileAnalysis.hasTests)
+    console.log('File Types:', fileAnalysis.fileTypes)
+
     // Generate suggestions based on comprehensive analysis
     if (fileAnalysis.codeQualityIssues.length > 0) {
       // Fix code quality issues first
@@ -451,27 +461,88 @@ ${firstFile.content}
 
   private detectQualityIssues(file: { path: string; content: string }, analysis: any) {
     const content = file.content
+    const lines = content.split('\n')
     
-    // No error handling
-    if (content.includes('fetch(') && !content.includes('catch')) {
+    // Skip analysis for README and other documentation files
+    if (file.path.toLowerCase().includes('readme') || 
+        file.path.toLowerCase().includes('.md') ||
+        file.path.toLowerCase().includes('license') ||
+        file.path.toLowerCase().includes('changelog')) {
+      return
+    }
+    
+    console.log(`🔍 Analyzing ${file.path} (${lines.length} lines)...`)
+    
+    // No error handling for fetch calls
+    if (content.includes('fetch(') && !content.includes('catch') && !content.includes('try')) {
       analysis.codeQualityIssues.push(`${file.path}: Missing error handling for fetch calls`)
     }
     
-    // Console.log in production
-    if (content.includes('console.log') && !file.path.includes('test')) {
-      analysis.codeQualityIssues.push(`${file.path}: Contains console.log statements`)
+    // Console.log in production code
+    const consoleMatches = content.match(/console\.(log|warn|error|info)/g)
+    if (consoleMatches && !file.path.includes('test') && !file.path.includes('spec')) {
+      analysis.codeQualityIssues.push(`${file.path}: Contains ${consoleMatches.length} console statements`)
     }
     
     // Long functions (>50 lines)
-    const functions = content.match(/function\s+\w+|=>\s*{/g)
-    if (functions && content.split('\n').length > 50) {
-      analysis.codeQualityIssues.push(`${file.path}: Contains long functions`)
+    const functionMatches = content.match(/function\s+\w+\([^)]*\)\s*{|const\s+\w+\s*=\s*\([^)]*\)\s*=>\s*{|\w+\([^)]*\)\s*{/g)
+    if (functionMatches && lines.length > 50) {
+      analysis.codeQualityIssues.push(`${file.path}: Contains potentially long functions (${lines.length} lines total)`)
+    }
+    
+    // Missing TypeScript types
+    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
+      if (content.includes(': any') || content.match(/\w+\s*=\s*\w+\s*=>/)) {
+        analysis.codeQualityIssues.push(`${file.path}: Contains 'any' types or missing type annotations`)
+      }
     }
     
     // No comments in complex files
-    if (content.split('\n').length > 30 && !content.includes('//') && !content.includes('/*')) {
-      analysis.codeQualityIssues.push(`${file.path}: Lacks code comments`)
+    if (lines.length > 30 && !content.includes('//') && !content.includes('/*') && !content.includes('*')) {
+      analysis.codeQualityIssues.push(`${file.path}: Lacks code comments (${lines.length} lines)`)
     }
+    
+    // Unused imports (basic check)
+    const importMatches = content.match(/import\s+{([^}]+)}\s+from/g)
+    if (importMatches) {
+      importMatches.forEach(importMatch => {
+        const imported = importMatch.match(/import\s+{([^}]+)}/)?.[1]
+        if (imported) {
+          const items = imported.split(',').map(item => item.trim())
+          const unusedItems = items.filter(item => {
+            const regex = new RegExp(`\\b${item.replace(/\s+as\s+\w+/, '')}\\b`)
+            return !regex.test(content.replace(importMatch, ''))
+          })
+          if (unusedItems.length > 0) {
+            analysis.codeQualityIssues.push(`${file.path}: Potentially unused imports: ${unusedItems.join(', ')}`)
+          }
+        }
+      })
+    }
+    
+    // Hardcoded URLs or secrets
+    if (content.match(/https?:\/\/[^\s'"]+/) && !file.path.includes('config')) {
+      analysis.codeQualityIssues.push(`${file.path}: Contains hardcoded URLs`)
+    }
+    
+    // Missing error boundaries in React components
+    if ((file.path.endsWith('.tsx') || file.path.endsWith('.jsx')) && 
+        content.includes('export default') && 
+        !content.includes('ErrorBoundary') && 
+        !content.includes('componentDidCatch')) {
+      analysis.codeQualityIssues.push(`${file.path}: React component missing error boundary`)
+    }
+    
+    // Performance issues
+    if (content.includes('useEffect') && content.includes('[]') && content.includes('fetch')) {
+      // This is actually good, but let's check for missing dependencies
+      const useEffectMatches = content.match(/useEffect\([^,]+,\s*\[[^\]]*\]/g)
+      if (useEffectMatches) {
+        analysis.codeQualityIssues.push(`${file.path}: Check useEffect dependencies for potential issues`)
+      }
+    }
+    
+    console.log(`✅ Analysis complete for ${file.path}`)
   }
 
   private checkMissingFiles(files: { path: string; content: string }[], analysis: any) {
@@ -660,13 +731,44 @@ ${firstFile.content}
       .map(file => `\n--- ${file.path} ---\n${file.content}`)
       .join('\n')
 
-    return `You are an AI code evolution assistant. Analyze this codebase and suggest ONE meaningful improvement.
+    const analysis = this.analyzeCodebase(files)
+    
+    return `You are an AI code evolution assistant. Take time to DEEPLY analyze this entire codebase line by line.
+
+CRITICAL INSTRUCTIONS:
+- SPEND TIME analyzing EVERY file provided
+- Check EACH line of code for issues
+- Identify ALL frameworks and libraries used
+- Find ALL console.log statements
+- Check for missing error handling
+- Analyze code structure and patterns
+- DO NOT suggest README.md changes unless specifically needed
+- Focus on ACTUAL CODE FILES (.js, .ts, .tsx, .py, .cpp, .java, etc.)
 
 Repository Context:
 ${repoContext}
 
-Current Files:
+CODEBASE ANALYSIS REQUIRED:
+Main Language: ${analysis.mainLanguage}
+Total Lines: ${analysis.totalLines}
+Languages Found: ${Object.keys(analysis.languages).join(', ')}
+Frameworks: ${analysis.frameworks.join(', ') || 'None detected'}
+File Types: ${Object.keys(analysis.fileTypes).join(', ')}
+
+Current Files to Analyze:
 ${fileContents}
+
+DEEP ANALYSIS CHECKLIST:
+1. ✅ Read every line of every file
+2. ✅ Check for console.log statements
+3. ✅ Find missing try-catch blocks
+4. ✅ Identify long functions (>50 lines)
+5. ✅ Check for missing TypeScript types
+6. ✅ Find unused imports
+7. ✅ Check for performance issues
+8. ✅ Identify code duplication
+9. ✅ Check for security vulnerabilities
+10. ✅ Find missing error boundaries
 
 IMPORTANT: Analyze the ACTUAL files provided above. Do not create generic script.js files. Look at the existing code structure and suggest improvements to EXISTING files or create files that make sense for this specific codebase.
 
