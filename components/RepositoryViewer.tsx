@@ -58,7 +58,20 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
         ) && !name.includes('readme') && !name.includes('.md')
       }).map(f => f.path)
       
-      filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : ['package.json']
+      filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : []
+      
+      if (filesToAnalyze.length === 0) {
+        // Force select actual code files from repository
+        const allCodeFiles = files.filter(file => {
+          const name = file.name || file.path
+          return name && (
+            name.endsWith('.ts') || name.endsWith('.tsx') || 
+            name.endsWith('.js') || name.endsWith('.jsx')
+          )
+        }).map(f => f.path || f.name)
+        
+        filesToAnalyze = allCodeFiles.slice(0, 3) // Take first 3 code files
+      }
     }
     
     if (filesToAnalyze.length === 0) {

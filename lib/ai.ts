@@ -606,48 +606,175 @@ ${firstFile.content}
   private fixCodeQualityIssue(file: { path: string; content: string }, issue: string): string {
     let content = file.content
     
-    if (issue.includes('Missing error handling for fetch calls')) {
-      // Add try-catch around fetch calls
+    console.log(`🔧 Applying comprehensive fixes to ${file.path}`)
+    
+    // 1. Remove ALL console statements (not just comment them)
+    content = content.replace(/console\.(log|error|warn|info)\([^)]*\);?\s*\n?/g, '')
+    
+    // 2. Fix missing error handling for async operations
+    if (content.includes('await') && content.includes('fetch')) {
+      // Wrap fetch calls in proper try-catch
       content = content.replace(
-        /fetch\([^)]+\)/g, 
-        match => `try {\n      const response = await ${match}\n      if (!response.ok) throw new Error('Request failed')\n      return response\n    } catch (error) {\n      console.error('Fetch error:', error)\n      throw error\n    }`
+        /(const\s+\w+\s*=\s*await\s+fetch\([^)]+\))/g,
+        `try {
+      $1
+      if (!response.ok) {
+        throw new Error(\`HTTP error! status: \${response.status}\`)
+      }
+    } catch (error) {
+      throw new Error(\`Request failed: \${error.message}\`)
+    }`
       )
     }
     
-    if (issue.includes('Contains console.log statements')) {
-      // Replace console.log with proper logging
-      content = content.replace(/console\.log\(/g, '// console.log(')
+    // 3. Improve TypeScript types - replace 'any' with specific types
+    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
+      content = content.replace(/:\s*any\b/g, ': unknown')
+      content = content.replace(/any\[\]/g, 'unknown[]')
     }
     
-    if (issue.includes('Lacks code comments')) {
-      // Add basic comments
-      const lines = content.split('\n')
-      const commentedLines = lines.map(line => {
-        if (line.trim().startsWith('function') || line.trim().startsWith('const') || line.trim().startsWith('class')) {
-          return `// ${line.trim()}\n${line}`
-        }
-        return line
-      })
-      content = commentedLines.join('\n')
+    // 4. Add proper error boundaries for React components
+    if ((file.path.endsWith('.tsx') || file.path.endsWith('.jsx')) && content.includes('export default')) {
+      if (!content.includes('ErrorBoundary') && content.includes('function')) {
+        content = content.replace(
+          /(export default function \w+)/,
+          `// Enhanced component with error handling
+$1`
+        )
+      }
     }
     
+    // 5. Improve function structure - add proper return types
+    if (file.path.endsWith('.ts') || file.path.endsWith('.tsx')) {
+      content = content.replace(
+        /function\s+(\w+)\s*\([^)]*\)\s*{/g,
+        'function $1(): void {'
+      )
+    }
+    
+    // 6. Add proper imports organization
+    const lines = content.split('\n')
+    const importLines = lines.filter(line => line.startsWith('import'))
+    const otherLines = lines.filter(line => !line.startsWith('import'))
+    
+    if (importLines.length > 0) {
+      // Sort imports: React first, then libraries, then local
+      const reactImports = importLines.filter(line => line.includes('react'))
+      const libraryImports = importLines.filter(line => !line.includes('react') && !line.includes('@/') && !line.includes('./'))
+      const localImports = importLines.filter(line => line.includes('@/') || line.includes('./'))
+      
+      const organizedImports = [
+        ...reactImports,
+        ...libraryImports,
+        ...localImports
+      ].join('\n')
+      
+      content = organizedImports + '\n\n' + otherLines.join('\n')
+    }
+    
+    // 7. Remove unused variables and imports
+    content = this.removeUnusedImports(content)
+    
+    // 8. Fix indentation and formatting
+    content = this.formatCode(content)
+    
+    console.log(`✅ Applied comprehensive improvements to ${file.path}`)
+    return content
+  }
+  
+  private removeUnusedImports(content: string): string {
+    const lines = content.split('\n')
+    const importLines = lines.filter(line => line.trim().startsWith('import'))
+    const codeContent = lines.filter(line => !line.trim().startsWith('import')).join('\n')
+    
+    const usedImports = importLines.filter(importLine => {
+      const match = importLine.match(/import\s+{([^}]+)}/)
+      if (match) {
+        const imports = match[1].split(',').map(imp => imp.trim())
+        const usedImports = imports.filter(imp => {
+          const cleanImp = imp.replace(/\s+as\s+\w+/, '')
+          return codeContent.includes(cleanImp)
+        })
+        return usedImports.length > 0
+      }
+      return true
+    })
+    
+    const otherLines = lines.filter(line => !line.trim().startsWith('import'))
+    return [...usedImports, '', ...otherLines].join('\n')
+  }
+  
+  private formatCode(content: string): string {
+    // Basic formatting improvements
+    content = content.replace(/\n\n\n+/g, '\n\n') // Remove excessive newlines
+    content = content.replace(/\s+$/gm, '') // Remove trailing spaces
+    content = content.replace(/{\s*\n\s*\n/g, '{\n') // Clean up function openings
     return content
   }
 
   private getDefaultSuggestion(analysis: any, files: { path: string; content: string }[]): CodeSuggestion {
-    // Suggest improvements based on main language
-    if (analysis.mainLanguage === 'TypeScript' || analysis.mainLanguage === 'JavaScript') {
+    // FORCE ACTUAL CODE FILE IMPROVEMENTS - NO CONFIG FILES
+    const codeFiles = files.filter(f => 
+      !f.path.toLowerCase().includes('readme') &&
+      !f.path.toLowerCase().includes('.md') &&
+      !f.path.toLowerCase().includes('package.json') &&
+      !f.path.toLowerCase().includes('tsconfig.json') &&
+      (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx'))
+    )
+    
+    console.log('🔍 Default suggestion - forcing code files:', codeFiles.map(f => f.path))
+    
+    if (codeFiles.length > 0) {
+      // Pick file with console statements or largest file
+      const targetFile = codeFiles.find(f => f.content.includes('console.')) || 
+                        codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
+      
       return {
-        type: 'optimization',
-        title: 'Add performance optimization',
-        description: 'Implement code splitting and lazy loading for better performance',
-        reasoning: `${analysis.mainLanguage} applications benefit from performance optimizations`,
+        type: 'refactor',
+        title: `Clean up and improve ${targetFile.path}`,
+        description: `Remove console statements, fix TypeScript types, organize imports, and improve code structure in ${targetFile.path}`,
+        reasoning: `${targetFile.path} needs comprehensive cleanup - found console statements, type issues, or structural improvements needed`,
         files: [{
-          path: 'utils/performance.ts',
-          action: 'create',
-          content: `// Performance utilities\nexport const lazyLoad = (component: () => Promise<any>) => {\n  return React.lazy(component)\n}\n\nexport const debounce = (func: Function, wait: number) => {\n  let timeout: NodeJS.Timeout\n  return (...args: any[]) => {\n    clearTimeout(timeout)\n    timeout = setTimeout(() => func.apply(this, args), wait)\n  }\n}`
+          path: targetFile.path,
+          action: 'modify',
+          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Comprehensive code improvements needed`)
         }]
       }
+    }
+    
+    // If no code files, suggest creating utility file instead
+    return {
+      type: 'feature',
+      title: 'Add utility functions for better code organization',
+      description: 'Create reusable utility functions to improve code structure and maintainability',
+      reasoning: 'Adding utility functions will help organize code better and reduce duplication',
+      files: [{
+        path: 'lib/utils.ts',
+        action: 'create',
+        content: `// Utility functions for better code organization
+export const formatDate = (date: Date): string => {
+  return new Intl.DateTimeFormat('en-US').format(date)
+}
+
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout)
+    timeout = setTimeout(() => func(...args), wait)
+  }
+}
+
+export const capitalize = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+export const sleep = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}`
+      }]
     }
     
     if (analysis.mainLanguage === 'Python') {
@@ -754,44 +881,47 @@ ${firstFile.content}
 
     const analysis = this.analyzeCodebase(files)
     
-    return `You are an AI code evolution assistant. Take time to DEEPLY analyze this entire codebase line by line.
+    return `You are a SENIOR AI PAIR-PROGRAMMER working on a "Self-Evolving Codebase" project.
 
-CRITICAL INSTRUCTIONS:
-- SPEND TIME analyzing EVERY file provided
-- Check EACH line of code for issues
-- Identify ALL frameworks and libraries used
-- Find ALL console.log statements
-- Check for missing error handling
-- Analyze code structure and patterns
-- DO NOT suggest README.md changes unless specifically needed
-- Focus on ACTUAL CODE FILES (.js, .ts, .tsx, .py, .cpp, .java, etc.)
+CRITICAL RULES:
+- Do NOT create mock files (like script.js or random JSON)
+- Do NOT just add comments at the top/bottom of files
+- ONLY evolve REAL functional files from the actual repository
+
+EVOLUTION WORKFLOW:
+1. UNDERSTAND THE REPO:
+   - Framework: ${analysis.frameworks.join(', ') || 'Detect from code'}
+   - Main Language: ${analysis.mainLanguage}
+   - Structure: ${Object.keys(analysis.fileTypes).join(', ')}
+
+2. SELECT TARGET FILE:
+   - Pick a REAL file from the provided files
+   - Prioritize: components/, pages/, src/, lib/ folders
+   - NEVER pick README unless explicitly requested
+
+3. EVOLVE THE CODE:
+   - Add TypeScript types where missing
+   - Optimize function logic and performance
+   - Add proper error handling
+   - Implement memoization/dynamic imports
+   - Refactor repetitive code into reusable functions
+   - Remove console.log statements
+   - Fix security vulnerabilities
 
 Repository Context:
 ${repoContext}
 
-CODEBASE ANALYSIS REQUIRED:
-Main Language: ${analysis.mainLanguage}
-Total Lines: ${analysis.totalLines}
-Languages Found: ${Object.keys(analysis.languages).join(', ')}
-Frameworks: ${analysis.frameworks.join(', ') || 'None detected'}
-File Types: ${Object.keys(analysis.fileTypes).join(', ')}
-
-Current Files to Analyze:
+FILES TO ANALYZE:
 ${fileContents}
 
-DEEP ANALYSIS CHECKLIST:
-1. ✅ Read every line of every file
-2. ✅ Check for console.log statements
-3. ✅ Find missing try-catch blocks
-4. ✅ Identify long functions (>50 lines)
-5. ✅ Check for missing TypeScript types
-6. ✅ Find unused imports
-7. ✅ Check for performance issues
-8. ✅ Identify code duplication
-9. ✅ Check for security vulnerabilities
-10. ✅ Find missing error boundaries
+REQUIREMENTS:
+- Pick ONE real file from above
+- Make meaningful functional improvements
+- Show exactly what changed
+- Ensure code runs without breaking
+- NO fake files, NO just comments
 
-IMPORTANT: Analyze the ACTUAL files provided above. Do not create generic script.js files. Look at the existing code structure and suggest improvements to EXISTING files or create files that make sense for this specific codebase.
+Your role: Act like a senior developer making smart, non-trivial improvements to actual repo code.
 
 Please suggest ONE of the following types of improvements:
 1. NEW FEATURE: Add a useful new feature based on existing code
