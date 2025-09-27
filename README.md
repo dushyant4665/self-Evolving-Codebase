@@ -1,168 +1,89 @@
-# Self-Evolving Codebase 🤖
+# Self-Evolving Codebase
 
-A futuristic AI-powered self-improving software system that analyzes your GitHub repositories, suggests intelligent improvements, and automatically creates pull requests with tests.
+A smart system that reads your code and suggests improvements automatically.
 
-![Self-Evolving Codebase](https://img.shields.io/badge/AI-Powered-blue) ![Next.js](https://img.shields.io/badge/Next.js-14-black) ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue) ![Supabase](https://img.shields.io/badge/Supabase-Database-green) ![Vercel](https://img.shields.io/badge/Vercel-Deployment-black)
+## What it does
 
-## 🚀 Features
+This project connects to your GitHub account and analyzes your code repositories. It uses AI to understand your code patterns and suggests better ways to write them. When you approve a suggestion, it creates a pull request on GitHub with the improvements.
 
-- **🧠 AI Code Analysis**: Intelligent analysis of repository structure and code patterns
-- **💡 Smart Suggestions**: AI-generated improvements for features, bug fixes, refactoring, and optimizations
-- **🔄 Automatic PRs**: Creates pull requests with detailed descriptions and code changes
-- **🧪 CI/CD Integration**: GitHub Actions workflow for automated testing
-- **📊 Evolution History**: Track all AI suggestions and their outcomes
-- **🎨 Modern UI**: Clean, futuristic interface built with Tailwind CSS
-- **🔐 Secure**: GitHub OAuth integration with proper authentication
+Think of it as having a smart coding assistant that never gets tired of helping you write better code.
 
-## 🛠️ Tech Stack
+## How it works
 
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **Backend**: Next.js API Routes + Supabase (PostgreSQL)
-- **Authentication**: GitHub OAuth
-- **AI**: Gemini API / DeepSeek / OpenRouter (free tiers)
-- **CI/CD**: GitHub Actions
-- **Deployment**: Vercel (free tier)
+1. Connect your GitHub account
+2. Choose a repository to analyze
+3. Select files you want to improve
+4. AI analyzes your code and suggests changes
+5. Review the suggestions
+6. Create pull requests with improvements
+7. Track all changes in evolution history
 
-## 🏗️ Setup Instructions
+## Technology used
 
-### 1. Clone and Install
+- Next.js for the web interface
+- TypeScript for type safety
+- Supabase for database
+- GitHub API for repository access
+- AI APIs (Gemini, DeepSeek, or OpenRouter)
+
+## Setup
+
+### Clone the project
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/dushyant4665/self-Evolving-Codebase.git
 cd self-evolving-codebase
 npm install
 ```
 
-### 2. Environment Variables
+### Environment variables
 
-Create a `.env.local` file in the root directory:
+Create `.env.local` file with these settings:
 
 ```env
-# Supabase
+# Database
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
 
-# GitHub OAuth
+# GitHub
 NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
+GITHUB_CLIENT_SECRET=your_github_secret
 
-# AI API (choose one)
-GEMINI_API_KEY=your_gemini_api_key
-# OR
-DEEPSEEK_API_KEY=your_deepseek_api_key
-# OR
-OPENROUTER_API_KEY=your_openrouter_api_key
+# AI (pick one)
+GEMINI_API_KEY=your_gemini_key
 ```
 
-### 3. Supabase Setup
+### Database setup
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com)
-2. Go to SQL Editor and run the contents of `supabase-setup.sql`
-3. Get your project URL and anon key from Settings > API
+1. Create account at supabase.com
+2. Create new project
+3. Get URL and key from settings
 
-### 4. GitHub OAuth Setup
+### GitHub setup
 
 1. Go to GitHub Settings > Developer settings > OAuth Apps
-2. Create a new OAuth App:
-   - Application name: `Self-Evolving Codebase`
-   - Homepage URL: `http://localhost:3000` (for development)
-   - Authorization callback URL: `http://localhost:3000/auth/callback`
-3. Copy Client ID and Client Secret to your `.env.local`
+2. Create new app with callback: http://localhost:3000/auth/callback
+3. Copy client ID and secret
 
-### 5. AI API Setup
+### AI setup
 
-Choose one of these free AI providers:
+Get free API key from:
+- Google AI Studio (Gemini) - recommended
+- DeepSeek platform
+- OpenRouter
 
-#### Option A: Google Gemini (Recommended)
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create an API key
-3. Add `GEMINI_API_KEY=your_key` to `.env.local`
-
-#### Option B: DeepSeek
-1. Sign up at [DeepSeek](https://platform.deepseek.com)
-2. Get your API key
-3. Add `DEEPSEEK_API_KEY=your_key` to `.env.local`
-
-#### Option C: OpenRouter
-1. Sign up at [OpenRouter](https://openrouter.ai)
-2. Get your API key (free tier available)
-3. Add `OPENROUTER_API_KEY=your_key` to `.env.local`
-
-### 6. Run Development Server
+### Run locally
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Open http://localhost:3000
 
-## 🚀 Deployment
+## Contributing
 
-### Deploy to Vercel
+Fork this repository, make changes, and submit a pull request.
 
-1. Push your code to GitHub
-2. Connect your GitHub repo to Vercel
-3. Add all environment variables in Vercel dashboard
-4. Update GitHub OAuth callback URL to your Vercel domain
-5. Deploy!
+## License
 
-## 📖 How It Works
-
-1. **Connect Repository**: Users authenticate with GitHub and select a repository
-2. **Select Files**: Choose files to analyze (supports most code file types)
-3. **AI Analysis**: AI analyzes the codebase and suggests improvements
-4. **Preview Changes**: Review the suggested changes in a detailed modal
-5. **Create PR**: Automatically creates a pull request with the changes
-6. **CI/CD Testing**: GitHub Actions runs tests on the PR
-7. **Track Evolution**: All suggestions and outcomes are logged and tracked
-
-## 🎯 AI Suggestion Types
-
-- **🆕 Features**: New functionality additions
-- **🐛 Bug Fixes**: Potential bug fixes and improvements
-- **🔄 Refactoring**: Code structure and readability improvements
-- **⚡ Optimizations**: Performance and efficiency enhancements
-
-## 📊 Evolution Dashboard
-
-- **Repository Browser**: View and select repositories
-- **File Explorer**: Navigate and select files for analysis
-- **Evolution History**: Track all AI suggestions with status updates
-- **Statistics**: View evolution metrics and success rates
-
-## 🔒 Security Features
-
-- GitHub OAuth for secure authentication
-- Row Level Security (RLS) in Supabase
-- API rate limiting and validation
-- Secure token handling
-
-## 🧪 Testing
-
-The project includes automated testing via GitHub Actions:
-
-- Basic syntax validation
-- Security scanning for hardcoded secrets
-- Code formatting checks
-- Custom test integration
-
-## 🤝 Contributing
-
-This is a demonstration project showcasing AI-powered code evolution. Feel free to:
-
-- Fork and experiment
-- Submit improvements
-- Report issues
-- Suggest new features
-
-## 📄 License
-
-MIT License - feel free to use this project as inspiration for your own AI-powered development tools.
-
----
-
-**Built with ❤️ for the future of self-improving software systems**
+MIT License

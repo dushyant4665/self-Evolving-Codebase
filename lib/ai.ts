@@ -83,21 +83,23 @@ ${repoContext}
 Current Files:
 ${fileContents}
 
+IMPORTANT: Analyze the ACTUAL files provided above. Do not create generic script.js files. Look at the existing code structure and suggest improvements to EXISTING files or create files that make sense for this specific codebase.
+
 Please suggest ONE of the following types of improvements:
-1. NEW FEATURE: Add a useful new feature
-2. BUG FIX: Fix a potential bug or issue
-3. REFACTOR: Improve code structure or readability
-4. OPTIMIZATION: Improve performance or efficiency
+1. NEW FEATURE: Add a useful new feature based on existing code
+2. BUG FIX: Fix a potential bug or issue in the provided files
+3. REFACTOR: Improve code structure or readability of existing files
+4. OPTIMIZATION: Improve performance or efficiency of existing code
 
 Respond in this EXACT JSON format:
 {
   "type": "feature|bugfix|refactor|optimization",
   "title": "Brief title of the improvement",
   "description": "Detailed description of what this improvement does",
-  "reasoning": "Why this improvement is beneficial",
+  "reasoning": "Why this improvement is beneficial for THIS specific codebase",
   "files": [
     {
-      "path": "relative/path/to/file",
+      "path": "path/to/actual/file/from/analysis",
       "action": "create|modify|delete",
       "content": "complete file content after changes"
     }
@@ -105,9 +107,11 @@ Respond in this EXACT JSON format:
 }
 
 Rules:
-- Suggest only ONE improvement per response
+- Analyze the PROVIDED files, not generic assumptions
+- Suggest improvements to EXISTING files or logical new files
+- DO NOT create generic script.js unless the codebase actually needs it
 - Provide complete file content, not just diffs
-- Focus on meaningful, practical improvements
+- Focus on meaningful improvements for THIS specific project
 - Ensure all code is syntactically correct
 - Keep changes focused and atomic`
   }

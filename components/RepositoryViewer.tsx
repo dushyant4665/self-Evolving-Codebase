@@ -87,44 +87,25 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
         throw new Error('No access token found. Please login again.')
       }
       
-      // Create mock AI suggestion for testing
-      const aiSuggestion = {
-        type: 'feature',
-        title: 'Add Interactive Elements',
-        description: 'Add interactive JavaScript functionality to improve user experience.',
-        reasoning: 'The current HTML page lacks interactive elements. Adding JavaScript functionality will make it more engaging.',
-        files: [
-          {
-            path: 'script.js',
-            action: 'modify',
-            content: `// Enhanced JavaScript functionality
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded successfully!');
-    
-    // Add click animations
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(button => {
-        button.addEventListener('click', function() {
-            this.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                this.style.transform = 'scale(1)';
-            }, 150);
-        });
-    });
-    
-    // Add smooth scrolling
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            document.querySelector(this.getAttribute('href')).scrollIntoView({
-                behavior: 'smooth'
-            });
-        });
-    });
-});`
-          }
-        ]
+      // Call real AI API to generate suggestions
+      const response = await fetch('/api/evolution/suggest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          repository,
+          filePaths: filesToAnalyze,
+          accessToken
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate AI suggestions')
       }
+
+      const result = await response.json()
+      const aiSuggestion = result.suggestion
       setSuggestion(aiSuggestion)
       
       // Store suggestion in database
