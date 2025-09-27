@@ -938,47 +938,73 @@ export const sleep = (ms: number): Promise<void> => {
 
     const analysis = this.analyzeCodebase(files)
     
-    return `--- EVOLVE MODE: STRICT NO-COMMENT POLICY ---
+    return `--- SELF-EVOLVING FULL SCAN MODE ---
 
-CRITICAL RULES - FAILURE TO FOLLOW = INVALID RESPONSE:
-❌ NEVER add useless comments like "// Enhanced version of..." or "// Additional improvements..."
-❌ NEVER create fake files (script.js, dummy.json, mock data)
-❌ NEVER touch README.md unless explicitly requested
-✅ ONLY make REAL functional changes to actual source code
+🚨 CRITICAL RULES - ZERO TOLERANCE:
+❌ NO comments-only changes ("Enhanced version", "Additional improvements")
+❌ NO dummy files (script.js, fake.json, mock content)
+❌ NO README/config changes unless explicitly requested
+✅ ONLY real functional improvements to actual source code
 
-REPO SCAN RESULTS:
+🔍 FULL REPO SCAN PROTOCOL:
+1. Walk through ALL folders recursively: app/, components/, lib/, utils/, src/, pages/, api/
+2. Collect ALL code files: .js, .jsx, .ts, .tsx (skip README, package.json, .env)
+3. Process file-by-file with meaningful improvements
+4. Show progress for large repos: "Scanning folder X", "Improving file Y"
+
+📊 CURRENT SCAN RESULTS:
 Framework: ${analysis.frameworks.join(', ') || 'Next.js/React detected'}
 Language: ${analysis.mainLanguage}
 Structure: ${Object.keys(analysis.fileTypes).join(', ')}
-Files Available: ${files.length}
+Files Scanned: ${files.length}
+Code Files Found: ${files.filter(f => f.path.match(/\.(js|jsx|ts|tsx)$/)).length}
 
-TARGET PRIORITY (pick ONE file only):
-1. 🎯 pages/ or app/ routes (Next.js pages) - HIGHEST IMPACT
-2. 🔧 components/ (React components) - HIGH REUSE
-3. 🛠️ pages/api/ or app/api/ (API endpoints) - BACKEND LOGIC
-4. 📚 lib/, utils/ (shared utilities) - FOUNDATIONAL
+🎯 IMPROVEMENT MATRIX (apply to ALL applicable files):
+🔹 React Components (.tsx/.jsx):
+   • Add React.memo for performance
+   • Implement useCallback/useMemo for expensive operations
+   • Add accessibility (aria-labels, alt text, semantic HTML)
+   • Add TypeScript prop interfaces
+   • Implement lazy loading for heavy components
 
-REAL CHANGE REQUIREMENTS:
-🔹 React Components: Add React.memo, useCallback, accessibility (aria-labels), TypeScript props
-🔹 API Routes: Input validation (zod/manual), try/catch error handling, proper HTTP codes
-🔹 Utils/Lib: Refactor repetitive logic, improve function names, add JSDoc with types
-🔹 Pages: Convert client-side fetch to getServerSideProps/getStaticProps, optimize performance
+🔹 API Routes (pages/api/, app/api/):
+   • Add input validation (manual checks or zod)
+   • Wrap in try/catch with proper error handling
+   • Return appropriate HTTP status codes
+   • Sanitize user inputs
+   • Add rate limiting considerations
 
-FILES TO ANALYZE:
+🔹 Utilities/Libraries (lib/, utils/):
+   • Rename unclear function names
+   • Add comprehensive JSDoc with types
+   • Remove code duplication
+   • Optimize algorithms
+   • Add input validation
+
+🔹 Pages (pages/, app/):
+   • Convert client-side fetch to server-side rendering
+   • Add loading states and error boundaries
+   • Optimize bundle size with dynamic imports
+   • Improve SEO and accessibility
+
+📁 FILES TO PROCESS:
 ${fileContents}
 
-MANDATORY OUTPUT FORMAT:
-1. BEFORE/AFTER DIFF showing exact code changes
-2. HUMAN SUMMARY (2-3 lines): What changed and why
-3. COMMIT MESSAGE: "feat/fix/refactor: brief description"
-4. BRANCH NAME: "evolve/YYYYMMDD-description"
+📋 MANDATORY EXECUTION PROTOCOL:
+1. Select HIGHEST IMPACT file from scan
+2. Apply REAL functional improvements (not comments)
+3. Provide BEFORE/AFTER diff showing exact changes
+4. Include HUMAN SUMMARY (2-3 lines): what changed and why
+5. Generate COMMIT MESSAGE: "feat/fix/refactor: description"
+6. Create BRANCH NAME: "evolve/YYYYMMDD-description"
 
-FAILSAFE CHECK:
-If you only add comments without changing logic = FAILURE
-If you create fake files = FAILURE  
-If you touch README without request = FAILURE
+⚠️ FAILSAFE VALIDATION:
+- Comments without logic changes = IMMEDIATE FAILURE
+- Fake files or dummy content = IMMEDIATE FAILURE
+- Config changes without request = IMMEDIATE FAILURE
+- Must respect original functionality (no breaking changes)
 
-EXECUTE: Pick the HIGHEST IMPACT file and make ONE real functional improvement.
+🚀 EXECUTE: Begin full scan evolution with real code improvements.
 
 Please suggest ONE of the following types of improvements:
 1. NEW FEATURE: Add a useful new feature based on existing code
