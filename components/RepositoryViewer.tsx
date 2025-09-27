@@ -43,8 +43,23 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
   }
 
   const handleEvolveCodebase = async () => {
-    // If no files selected, use all available files
-    const filesToAnalyze = selectedFiles.length > 0 ? selectedFiles : ['README.md']
+    // If no files selected, find actual code files
+    let filesToAnalyze = selectedFiles.length > 0 ? selectedFiles : []
+    
+    if (filesToAnalyze.length === 0) {
+      // Find code files automatically - NO README
+      const codeFiles = files.filter(file => {
+        const name = file.name.toLowerCase()
+        return (
+          name.endsWith('.ts') || name.endsWith('.tsx') || 
+          name.endsWith('.js') || name.endsWith('.jsx') ||
+          name.endsWith('.py') || name.endsWith('.java') ||
+          name.endsWith('.cpp') || name.endsWith('.c')
+        ) && !name.includes('readme') && !name.includes('.md')
+      }).map(f => f.path)
+      
+      filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : ['package.json']
+    }
     
     if (filesToAnalyze.length === 0) {
       alert('No files available to analyze')
