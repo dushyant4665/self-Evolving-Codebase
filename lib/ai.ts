@@ -85,7 +85,16 @@ export class AIService {
     
     const codeFiles = files.filter(f => {
       const path = f.path.toLowerCase()
-      const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
+      const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx') ||
+                        path.endsWith('.py') || path.endsWith('.java') || path.endsWith('.cpp') || path.endsWith('.c') ||
+                        path.endsWith('.cs') || path.endsWith('.php') || path.endsWith('.rb') || path.endsWith('.go') ||
+                        path.endsWith('.rs') || path.endsWith('.swift') || path.endsWith('.kt') || path.endsWith('.scala') ||
+                        path.endsWith('.html') || path.endsWith('.css') || path.endsWith('.scss') || path.endsWith('.sass') ||
+                        path.endsWith('.vue') || path.endsWith('.svelte') || path.endsWith('.jsx') || path.endsWith('.tsx') ||
+                        path.endsWith('.dart') || path.endsWith('.r') || path.endsWith('.m') || path.endsWith('.pl') ||
+                        path.endsWith('.sh') || path.endsWith('.bash') || path.endsWith('.zsh') || path.endsWith('.fish') ||
+                        path.endsWith('.sql') || path.endsWith('.json') || path.endsWith('.xml') || path.endsWith('.yaml') ||
+                        path.endsWith('.yml') || path.endsWith('.toml') || path.endsWith('.ini') || path.endsWith('.cfg')
       const isNotConfig = !path.includes('readme') &&
                          !path.includes('.md') &&
                          !path.includes('package.json') &&
@@ -96,7 +105,9 @@ export class AIService {
                          !path.includes('.gitignore') &&
                          !path.includes('config') &&
                          !path.includes('vercel.json') &&
-                         !path.includes('package-lock.json')
+                         !path.includes('package-lock.json') &&
+                         !path.includes('node_modules') &&
+                         !path.includes('.git')
       
       console.log(`File: ${f.path}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
       return isCodeFile && isNotConfig
@@ -185,10 +196,13 @@ export class AIService {
     const issues: string[] = []
     const content = file.content || ''
     const path = file.path || ''
+    const ext = path.split('.').pop()?.toLowerCase() || ''
     
-    // Check for console statements
-    if (content.includes('console.log') || content.includes('console.error') || content.includes('console.warn')) {
-      issues.push('console statements found')
+    // Check for console statements (JS/TS/Python/Java/C++)
+    if (content.includes('console.log') || content.includes('console.error') || content.includes('console.warn') ||
+        content.includes('print(') || content.includes('System.out.println') || content.includes('printf') ||
+        content.includes('cout <<') || content.includes('console.log')) {
+      issues.push('console/print statements found')
     }
     
     // Check for missing error handling
@@ -214,7 +228,9 @@ export class AIService {
     let inFunction = false
     
     for (const line of lines) {
-      if (line.trim().startsWith('function ') || line.trim().startsWith('const ') || line.trim().startsWith('export ')) {
+      if (line.trim().startsWith('function ') || line.trim().startsWith('const ') || line.trim().startsWith('export ') ||
+          line.trim().startsWith('def ') || line.trim().startsWith('class ') || line.trim().startsWith('public ') ||
+          line.trim().startsWith('private ') || line.trim().startsWith('protected ')) {
         if (inFunction && currentFunctionLines > 50) {
           issues.push('long functions found (>50 lines)')
         }
@@ -242,6 +258,70 @@ export class AIService {
     if (content.includes('useState') && !content.includes('loading') && !content.includes('Loading')) {
       if (content.includes('fetch') || content.includes('axios') || content.includes('api')) {
         issues.push('missing loading states for API calls')
+      }
+    }
+    
+    // Language-specific checks
+    if (ext === 'py') {
+      if (content.includes('import *') || content.includes('from *')) {
+        issues.push('wildcard imports found in Python')
+      }
+      if (!content.includes('if __name__ == "__main__"') && content.includes('def main')) {
+        issues.push('missing main guard in Python')
+      }
+    }
+    
+    if (ext === 'java') {
+      if (content.includes('System.out.println') && !content.includes('Logger')) {
+        issues.push('using System.out.println instead of Logger')
+      }
+      if (content.includes('catch (Exception e)') && !content.includes('e.printStackTrace()')) {
+        issues.push('empty catch blocks found')
+      }
+    }
+    
+    if (ext === 'cpp' || ext === 'c') {
+      if (content.includes('using namespace std') && content.includes('#include <iostream>')) {
+        issues.push('using namespace std in C++')
+      }
+      if (content.includes('malloc') && !content.includes('free')) {
+        issues.push('memory allocation without proper cleanup')
+      }
+    }
+    
+    if (ext === 'go') {
+      if (content.includes('panic(') && !content.includes('defer')) {
+        issues.push('panic without proper error handling')
+      }
+      if (content.includes('var ') && content.includes('= nil')) {
+        issues.push('uninitialized variables found')
+      }
+    }
+    
+    if (ext === 'rs') {
+      if (content.includes('unwrap()') && !content.includes('match')) {
+        issues.push('using unwrap() instead of proper error handling')
+      }
+      if (content.includes('clone()') && content.includes('for ')) {
+        issues.push('unnecessary cloning in loops')
+      }
+    }
+    
+    if (ext === 'html') {
+      if (content.includes('<script>') && !content.includes('</script>')) {
+        issues.push('unclosed script tags')
+      }
+      if (content.includes('<img') && !content.includes('alt=')) {
+        issues.push('images without alt attributes')
+      }
+    }
+    
+    if (ext === 'css' || ext === 'scss') {
+      if (content.includes('!important') && content.includes('!important')) {
+        issues.push('excessive use of !important')
+      }
+      if (content.includes('px') && !content.includes('rem') && !content.includes('em')) {
+        issues.push('using px instead of relative units')
       }
     }
     
