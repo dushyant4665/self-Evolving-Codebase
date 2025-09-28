@@ -127,3 +127,4 @@ jobs:
         fi
         
         echo "Format check completed!"
+
