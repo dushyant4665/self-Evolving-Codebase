@@ -94,7 +94,9 @@ export class AIService {
                          !path.includes('tailwind.config') &&
                          !path.includes('postcss.config') &&
                          !path.includes('.gitignore') &&
-                         !path.includes('config')
+                         !path.includes('config') &&
+                         !path.includes('vercel.json') &&
+                         !path.includes('package-lock.json')
       
       console.log(`File: ${f.path}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
       return isCodeFile && isNotConfig
@@ -124,15 +126,19 @@ export class AIService {
       
       console.log('🎯 SELECTED TARGET FILE:', targetFile.path)
       
+      // ANALYZE THE FILE FOR REAL ISSUES
+      const issues = this.analyzeFileForIssues(targetFile)
+      console.log('🔍 DETECTED ISSUES:', issues)
+      
       suggestion = {
         type: 'refactor',
-        title: `Deep code analysis: ${targetFile.path}`,
-        description: `Comprehensive analysis of ${targetFile.path} to find and fix real code issues, improve performance, and add proper error handling`,
-        reasoning: `${targetFile.path} needs thorough code analysis and improvements - checking for console statements, type issues, performance problems, and missing error handling`,
+        title: `Code Analysis: ${targetFile.path}`,
+        description: `Found ${issues.length} issues in ${targetFile.path}: ${issues.join(', ')}. Fixing these issues to improve code quality.`,
+        reasoning: `${targetFile.path} has ${issues.length} issues that need fixing: ${issues.join(', ')}. Applying real code improvements.`,
         files: [{
           path: targetFile.path,
           action: 'modify',
-          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Deep code analysis and real improvements`)
+          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Fixing ${issues.length} detected issues`)
         }]
       }
     } else {
@@ -173,6 +179,73 @@ export class AIService {
     console.log('Files to modify:', suggestion.files.map(f => f.path))
     
     return suggestion
+  }
+
+  private analyzeFileForIssues(file: any): string[] {
+    const issues: string[] = []
+    const content = file.content || ''
+    const path = file.path || ''
+    
+    // Check for console statements
+    if (content.includes('console.log') || content.includes('console.error') || content.includes('console.warn')) {
+      issues.push('console statements found')
+    }
+    
+    // Check for missing error handling
+    if (content.includes('async') && !content.includes('try') && !content.includes('catch')) {
+      issues.push('missing error handling in async functions')
+    }
+    
+    // Check for TypeScript any types
+    if (content.includes(': any') || content.includes('any[]')) {
+      issues.push('TypeScript any types found')
+    }
+    
+    // Check for missing React imports
+    if (content.includes('useState') || content.includes('useEffect') || content.includes('useCallback')) {
+      if (!content.includes("import React") && !content.includes("from 'react'")) {
+        issues.push('missing React imports')
+      }
+    }
+    
+    // Check for long functions (over 50 lines)
+    const lines = content.split('\n')
+    let currentFunctionLines = 0
+    let inFunction = false
+    
+    for (const line of lines) {
+      if (line.trim().startsWith('function ') || line.trim().startsWith('const ') || line.trim().startsWith('export ')) {
+        if (inFunction && currentFunctionLines > 50) {
+          issues.push('long functions found (>50 lines)')
+        }
+        inFunction = true
+        currentFunctionLines = 0
+      }
+      if (inFunction) {
+        currentFunctionLines++
+      }
+    }
+    
+    // Check for missing prop types in React components
+    if (path.includes('components/') && content.includes('export default')) {
+      if (!content.includes('interface') && !content.includes('type ') && content.includes('props')) {
+        issues.push('missing TypeScript interfaces for props')
+      }
+    }
+    
+    // Check for hardcoded values
+    if (content.includes('localhost') || content.includes('127.0.0.1') || content.includes('http://')) {
+      issues.push('hardcoded URLs found')
+    }
+    
+    // Check for missing loading states
+    if (content.includes('useState') && !content.includes('loading') && !content.includes('Loading')) {
+      if (content.includes('fetch') || content.includes('axios') || content.includes('api')) {
+        issues.push('missing loading states for API calls')
+      }
+    }
+    
+    return issues
   }
 
   private analyzeCodebase(files: { path: string; content: string }[]) {
