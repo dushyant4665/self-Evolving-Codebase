@@ -77,8 +77,26 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     for (const file of files) {
       allFiles.push(file)
       
-      // If it's a directory, load its contents
+      // If it's a directory, load its contents (but skip unnecessary folders)
       if (file.type === 'dir') {
+        const path = (file.path || file.name || '').toLowerCase()
+        
+        // Skip unnecessary folders
+        if (path.includes('node_modules') || 
+            path.includes('.git') || 
+            path.includes('dist') || 
+            path.includes('build') || 
+            path.includes('.next') || 
+            path.includes('coverage') ||
+            path.includes('.vscode') ||
+            path.includes('.idea') ||
+            path.includes('logs') ||
+            path.includes('tmp') ||
+            path.includes('temp')) {
+          console.log(`⏭️ Skipping folder: ${file.path}`)
+          continue
+        }
+        
         try {
           console.log(`🔍 Loading directory: ${file.path}`)
           setEvolutionStatus(`📁 Scanning ${file.path}...`)
@@ -193,30 +211,30 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     
     console.log('✅ FILES TO ANALYZE:', filesToAnalyze)
 
-    setEvolving(true)
+      setEvolving(true)
       setEvolutionStatus('🔍 Analyzing codebase...')
 
-    try {
-      // Get file contents
-      setEvolutionStatus(`📖 Reading ${filesToAnalyze.length} files...`)
-      const fileContents = await Promise.all(
-        filesToAnalyze.map(async (filePath, index) => {
-          try {
-            setEvolutionStatus(`📖 Reading file ${index + 1}/${filesToAnalyze.length}: ${filePath}`)
-            const { content } = await githubService.getFileContent(
-              repository.owner.login,
-              repository.name,
-              filePath
-            )
-            return { path: filePath, content }
-          } catch (error) {
-            console.error(`Failed to get content for ${filePath}:`, error)
-            return { path: filePath, content: '// Failed to load content' }
-          }
-        })
-      )
+      try {
+        // Get file contents
+        setEvolutionStatus(`📖 Reading ${filesToAnalyze.length} files...`)
+        const fileContents = await Promise.all(
+          filesToAnalyze.map(async (filePath, index) => {
+            try {
+              setEvolutionStatus(`📖 Reading file ${index + 1}/${filesToAnalyze.length}: ${filePath}`)
+              const { content } = await githubService.getFileContent(
+                repository.owner.login,
+                repository.name,
+                filePath
+              )
+              return { path: filePath, content }
+            } catch (error) {
+              console.error(`Failed to get content for ${filePath}:`, error)
+              return { path: filePath, content: '// Failed to load content' }
+            }
+          })
+        )
 
-      setEvolutionStatus('🤖 Generating AI suggestions...')
+        setEvolutionStatus('🤖 Generating AI suggestions...')
       
       // Get access token
       let accessToken = user?.access_token
