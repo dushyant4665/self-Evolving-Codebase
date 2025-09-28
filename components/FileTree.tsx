@@ -135,6 +135,16 @@ export function FileTree({ files, selectedFiles, onFileSelect, githubService, re
     return Array.from(codeExtensions).some(ext => lowerName.endsWith(ext))
   }, [codeExtensions])
 
+  const createFileClickHandler = useCallback((filePath: string, isFolder: boolean, isSelectable: boolean) => {
+    return () => {
+      if (isFolder) {
+        toggleFolder(filePath)
+      } else if (isSelectable) {
+        toggleFileSelection(filePath)
+      }
+    }
+  }, [toggleFolder, toggleFileSelection])
+
   const renderFileItem = useCallback((file: GitHubFile, depth = 0): JSX.Element => {
     const isFolder = file.type === 'dir'
     const isExpanded = expandedFolders.has(file.path)
@@ -143,13 +153,7 @@ export function FileTree({ files, selectedFiles, onFileSelect, githubService, re
     const isLoading = loadingState[file.path]
     const hasError = errorState[file.path]
 
-    const handleClick = useCallback(() => {
-      if (isFolder) {
-        toggleFolder(file.path)
-      } else if (isSelectable) {
-        toggleFileSelection(file.path)
-      }
-    }, [isFolder, isSelectable, file.path])
+    const handleClick = createFileClickHandler(file.path, isFolder, isSelectable)
 
     return (
       <div key={file.path}>
