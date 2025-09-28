@@ -37,12 +37,39 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
       )
       const fileList = Array.isArray(contents) ? contents : [contents]
       console.log('📁 Loaded files:', fileList.map(f => ({ name: f.name, path: f.path, type: f.type })))
-      setFiles(fileList)
+      
+      // Recursively load files from subdirectories
+      const allFiles = await loadAllFilesRecursively(fileList, repository.owner.login, repository.name)
+      console.log('📁 All files (including subdirectories):', allFiles.map(f => ({ name: f.name, path: f.path, type: f.type })))
+      setFiles(allFiles)
     } catch (error) {
       console.error('Failed to load repository files:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadAllFilesRecursively = async (files: any[], owner: string, repo: string): Promise<any[]> => {
+    const allFiles: any[] = []
+    
+    for (const file of files) {
+      allFiles.push(file)
+      
+      // If it's a directory, load its contents
+      if (file.type === 'dir') {
+        try {
+          console.log(`🔍 Loading directory: ${file.path}`)
+          const dirContents = await githubService.getRepositoryContents(owner, repo, file.path)
+          const dirFiles = Array.isArray(dirContents) ? dirContents : [dirContents]
+          const subFiles = await loadAllFilesRecursively(dirFiles, owner, repo)
+          allFiles.push(...subFiles)
+        } catch (error) {
+          console.error(`Failed to load directory ${file.path}:`, error)
+        }
+      }
+    }
+    
+    return allFiles
   }
 
   const handleEvolveCodebase = async () => {
@@ -53,48 +80,91 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
       // Find code files automatically - NO README, NO CONFIG FILES
       console.log('🔍 Available files:', files.map(f => ({ name: f.name, path: f.path })))
       
-      const codeFiles = files.filter(file => {
-        const name = (file.name || file.path || '').toLowerCase()
-        const isCodeFile = (
-          name.endsWith('.ts') || name.endsWith('.tsx') || 
-          name.endsWith('.js') || name.endsWith('.jsx') ||
-          name.endsWith('.py') || name.endsWith('.java') ||
-          name.endsWith('.cpp') || name.endsWith('.c')
+      // FIRST: Try to find files in src/ folder
+      const srcFiles = files.filter(file => {
+        const path = (file.path || file.name || '').toLowerCase()
+        return path.startsWith('src/') && (
+          path.endsWith('.ts') || path.endsWith('.tsx') || 
+          path.endsWith('.js') || path.endsWith('.jsx') ||
+          path.endsWith('.py') || path.endsWith('.java') ||
+          path.endsWith('.cpp') || path.endsWith('.c') ||
+          path.endsWith('.go') || path.endsWith('.rs') ||
+          path.endsWith('.html') || path.endsWith('.css')
         )
-        const isNotConfig = !name.includes('readme') && 
-                           !name.includes('.md') && 
-                           !name.includes('package.json') &&
-                           !name.includes('tsconfig') &&
-                           !name.includes('next.config') &&
-                           !name.includes('tailwind.config') &&
-                           !name.includes('postcss.config') &&
-                           !name.includes('.gitignore')
-        
-        console.log(`File: ${name}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
-        return isCodeFile && isNotConfig
-      }).map(f => f.path || f.name)
+      })
       
-      console.log('🎯 Selected code files:', codeFiles)
-      filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : []
+      console.log('🔍 Found src/ files:', srcFiles.map(f => f.path))
       
-      if (filesToAnalyze.length === 0) {
-        // Force select ANY code files from repository
-        const allCodeFiles = files.filter(file => {
-          const name = (file.name || file.path || '').toLowerCase()
-          return name && (
-            name.endsWith('.ts') || name.endsWith('.tsx') || 
-            name.endsWith('.js') || name.endsWith('.jsx')
+      if (srcFiles.length > 0) {
+        filesToAnalyze = srcFiles.slice(0, 5).map(f => f.path || f.name)
+        console.log('🎯 Using src/ files:', filesToAnalyze)
+      } else {
+        // SECOND: Try to find files in components/ folder
+        const componentFiles = files.filter(file => {
+          const path = (file.path || file.name || '').toLowerCase()
+          return path.startsWith('components/') && (
+            path.endsWith('.ts') || path.endsWith('.tsx') || 
+            path.endsWith('.js') || path.endsWith('.jsx')
           )
-        }).map(f => f.path || f.name)
+        })
         
-        console.log('🚨 Fallback code files:', allCodeFiles)
-        filesToAnalyze = allCodeFiles.slice(0, 3) // Take first 3 code files
+        console.log('🔍 Found components/ files:', componentFiles.map(f => f.path))
+        
+        if (componentFiles.length > 0) {
+          filesToAnalyze = componentFiles.slice(0, 5).map(f => f.path || f.name)
+          console.log('🎯 Using components/ files:', filesToAnalyze)
+        } else {
+          // THIRD: Try to find files in app/ folder
+          const appFiles = files.filter(file => {
+            const path = (file.path || file.name || '').toLowerCase()
+            return path.startsWith('app/') && (
+              path.endsWith('.ts') || path.endsWith('.tsx') || 
+              path.endsWith('.js') || path.endsWith('.jsx')
+            )
+          })
+          
+          console.log('🔍 Found app/ files:', appFiles.map(f => f.path))
+          
+          if (appFiles.length > 0) {
+            filesToAnalyze = appFiles.slice(0, 5).map(f => f.path || f.name)
+            console.log('🎯 Using app/ files:', filesToAnalyze)
+          } else {
+            // FOURTH: Try to find ANY code files in root
+            const rootCodeFiles = files.filter(file => {
+              const name = (file.name || file.path || '').toLowerCase()
+              const isCodeFile = (
+                name.endsWith('.ts') || name.endsWith('.tsx') || 
+                name.endsWith('.js') || name.endsWith('.jsx') ||
+                name.endsWith('.py') || name.endsWith('.java') ||
+                name.endsWith('.cpp') || name.endsWith('.c') ||
+                name.endsWith('.go') || name.endsWith('.rs') ||
+                name.endsWith('.html') || name.endsWith('.css')
+              )
+              const isNotConfig = !name.includes('readme') && 
+                                 !name.includes('.md') && 
+                                 !name.includes('package.json') &&
+                                 !name.includes('tsconfig') &&
+                                 !name.includes('next.config') &&
+                                 !name.includes('tailwind.config') &&
+                                 !name.includes('postcss.config') &&
+                                 !name.includes('.gitignore') &&
+                                 !name.includes('node_modules') &&
+                                 !name.includes('.git')
+              
+              console.log(`File: ${name}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
+              return isCodeFile && isNotConfig
+            }).map(f => f.path || f.name)
+            
+            console.log('🎯 Selected root code files:', rootCodeFiles)
+            filesToAnalyze = rootCodeFiles.length > 0 ? rootCodeFiles.slice(0, 5) : []
+          }
+        }
       }
     }
     
     if (filesToAnalyze.length === 0) {
       console.log('🚨 NO FILES TO ANALYZE - Available files:', files.map(f => f.path))
-      alert('No code files available to analyze. Please ensure the repository contains .ts, .tsx, .js, or .jsx files.')
+      alert('No code files available to analyze. Please ensure the repository contains code files in src/, components/, app/, or root directories.')
       return
     }
     
