@@ -282,28 +282,34 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
       )
 
       // Update files with real changes
+      console.log(`🚀 UPDATING ${suggestion.files.length} FILES IN BRANCH: ${branchName}`)
+      
       for (const file of suggestion.files) {
         if (file.action === 'modify' || file.action === 'create') {
           try {
+            console.log(`📝 Processing file: ${file.path} (${file.action})`)
             let fileSha = ''
             
             // For modify action, get existing file SHA
             if (file.action === 'modify') {
               try {
-                const { sha } = await githubService.getFileContent(
+                const fileContent = await githubService.getFileContent(
                   repository.owner.login,
                   repository.name,
                   file.path
                 )
-                fileSha = sha
+                fileSha = fileContent.sha
+                console.log(`✅ Found existing file ${file.path} with SHA: ${fileSha}`)
               } catch (error) {
-                console.log(`File ${file.path} doesn't exist, creating new file`)
+                console.log(`⚠️ File ${file.path} doesn't exist, creating new file`)
                 // File doesn't exist, treat as create
+                fileSha = ''
               }
             }
 
             // Create/update the file
-            await githubService.updateFile(
+            console.log(`🔄 Updating file ${file.path} with content length: ${file.content.length}`)
+            const result = await githubService.updateFile(
               repository.owner.login,
               repository.name,
               file.path,
@@ -313,12 +319,15 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
               branchName
             )
             
-            console.log(`Successfully updated ${file.path}`)
+            console.log(`✅ Successfully updated ${file.path} - Commit SHA: ${result.commit.sha}`)
           } catch (error) {
-            console.error(`Failed to update file ${file.path}:`, error)
+            console.error(`❌ Failed to update file ${file.path}:`, error)
+            // Continue with other files even if one fails
           }
         }
       }
+      
+      console.log(`🎉 COMPLETED UPDATING ALL FILES IN BRANCH: ${branchName}`)
       
       // Also update README with AI evolution note
       try {

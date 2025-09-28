@@ -94,16 +94,27 @@ export class GitHubService {
     sha: string,
     branch: string
   ) {
-    const { data } = await this.octokit.rest.repos.createOrUpdateFileContents({
-      owner,
-      repo,
-      path,
-      message,
-      content: Buffer.from(content).toString('base64'),
-      sha,
-      branch,
-    })
-    return data
+    console.log(`🔄 GitHub API: Updating file ${path} in branch ${branch}`)
+    console.log(`📊 Content length: ${content.length}, SHA: ${sha || 'NEW FILE'}`)
+    
+    try {
+      const { data } = await this.octokit.rest.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path,
+        message,
+        content: Buffer.from(content).toString('base64'),
+        sha: sha || undefined, // Only include SHA if it exists
+        branch,
+      })
+      
+      console.log(`✅ GitHub API: Successfully updated ${path}`)
+      console.log(`📝 Commit SHA: ${data.commit.sha}`)
+      return data
+    } catch (error) {
+      console.error(`❌ GitHub API Error for ${path}:`, error)
+      throw error
+    }
   }
 
   async getDefaultBranch(owner: string, repo: string) {
