@@ -80,30 +80,50 @@ export class AIService {
     console.log('Has Tests:', fileAnalysis.hasTests)
     console.log('File Types:', fileAnalysis.fileTypes)
 
-    // FORCE REAL CODE FILE ANALYSIS - NO CONFIG FILES EVER
+    // FORCE REAL CODE FILE ANALYSIS - ABSOLUTELY NO CONFIG FILES
     console.log('🔍 ALL FILES RECEIVED:', files.map(f => f.path))
+    
+    // HARD FILTER - ONLY ALLOW SPECIFIC CODE FILES
+    const allowedPaths = [
+      'components/',
+      'app/',
+      'lib/',
+      'src/',
+      'pages/',
+      'utils/',
+      'hooks/',
+      'types/'
+    ]
     
     const codeFiles = files.filter(f => {
       const path = f.path.toLowerCase()
-      const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
-      const isNotConfig = !path.includes('readme') &&
-                         !path.includes('.md') &&
-                         !path.includes('package.json') &&
-                         !path.includes('tsconfig') &&
-                         !path.includes('next.config') &&
-                         !path.includes('tailwind.config') &&
-                         !path.includes('postcss.config') &&
-                         !path.includes('.gitignore') &&
-                         !path.includes('config')
       
-      console.log(`File: ${f.path}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
-      return isCodeFile && isNotConfig
+      // MUST be in allowed directories
+      const isInAllowedDir = allowedPaths.some(allowedPath => path.startsWith(allowedPath))
+      
+      // MUST be code file
+      const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
+      
+      // MUST NOT be config
+      const isNotConfig = !path.includes('config') && 
+                         !path.includes('package') && 
+                         !path.includes('tsconfig') && 
+                         !path.includes('next.config') && 
+                         !path.includes('tailwind') && 
+                         !path.includes('postcss') && 
+                         !path.includes('gitignore') && 
+                         !path.includes('readme') && 
+                         !path.includes('.md') &&
+                         !path.includes('vercel') &&
+                         !path.includes('env')
+      
+      const isValid = isInAllowedDir && isCodeFile && isNotConfig
+      console.log(`File: ${f.path}, isInAllowedDir: ${isInAllowedDir}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}, VALID: ${isValid}`)
+      return isValid
     })
     
-    console.log('🔍 FORCING REAL CODE FILES ONLY:', codeFiles.map(f => f.path))
-    console.log('🚫 BLOCKED CONFIG FILES:', files.filter(f => 
-      f.path.includes('config') || f.path.includes('package.json') || f.path.includes('tsconfig') || f.path.includes('next.config')
-    ).map(f => f.path))
+    console.log('🔍 VALID CODE FILES ONLY:', codeFiles.map(f => f.path))
+    console.log('🚫 REJECTED FILES:', files.filter(f => !codeFiles.includes(f)).map(f => f.path))
     
     if (codeFiles.length > 0) {
       // PRIORITY: Files with console statements > React components > Largest files
