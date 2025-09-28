@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+interface StatusUpdateRequest {
+  pr_url: string
+  status: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { pr_url, status } = await request.json()
+    const body: StatusUpdateRequest = await request.json()
+    const { pr_url, status } = body
 
     if (!pr_url || !status) {
       return NextResponse.json(
         { error: 'Missing pr_url or status' },
+        { status: 400 }
+      )
+    }
+
+    if (typeof pr_url !== 'string' || typeof status !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid data types for pr_url or status' },
         { status: 400 }
       )
     }

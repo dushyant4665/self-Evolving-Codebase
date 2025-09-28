@@ -1,23 +1,35 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { History, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle, GitPullRequest, Zap } from 'lucide-react'
 
+interface Repository {
+  id: number
+  name: string
+  full_name: string
+}
+
+interface EvolutionLog {
+  id: string
+  repository_id: string
+  suggestion_text: string
+  status: string
+  pr_url?: string
+  created_at: string
+  diff_content?: string
+}
+
 interface EvolutionLogsProps {
-  selectedRepo: any
+  selectedRepo: Repository | null
 }
 
 export function EvolutionLogs({ selectedRepo }: EvolutionLogsProps) {
-  const [logs, setLogs] = useState<any[]>([])
+  const [logs, setLogs] = useState<EvolutionLog[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'pr_created' | 'merged' | 'rejected'>('all')
 
-  useEffect(() => {
-    loadLogs()
-  }, [selectedRepo, filter])
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setLoading(true)
       let query = supabase
@@ -43,7 +55,11 @@ export function EvolutionLogs({ selectedRepo }: EvolutionLogsProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedRepo, filter])
+
+  useEffect(() => {
+    loadLogs()
+  }, [loadLogs])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -87,18 +103,15 @@ export function EvolutionLogs({ selectedRepo }: EvolutionLogsProps) {
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const getEvolutionStats = () => {
-    const stats = {
+  const stats = useMemo(() => {
+    return {
       total: logs.length,
       pending: logs.filter(log => log.status === 'pending').length,
       pr_created: logs.filter(log => log.status === 'pr_created').length,
       merged: logs.filter(log => log.status === 'merged').length,
       rejected: logs.filter(log => log.status === 'rejected').length,
     }
-    return stats
-  }
-
-  const stats = getEvolutionStats()
+  }, [logs])
 
   if (loading) {
     return (

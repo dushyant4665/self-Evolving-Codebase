@@ -1,32 +1,44 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, Suspense, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Loader2 } from 'lucide-react'
 
+interface GitHubUser {
+  id: number
+  login: string
+  avatar_url: string
+  name?: string
+  email?: string
+}
+
+interface AuthResponse {
+  user: GitHubUser
+  accessToken: string
+}
+
 function AuthCallbackContent() {
   const [status, setStatus] = useState('Processing...')
+  const [error, setError] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  useEffect(() => {
-    handleCallback()
-  }, [])
-
-  const handleCallback = async () => {
+  const handleCallback = useCallback(async () => {
     try {
       const code = searchParams.get('code')
       
       if (!code) {
-        setStatus('No authorization code received')
+        setError('No authorization code received')
+        setStatus('Authentication failed')
         return
       }
 
       // Check if code was already used
       const usedCode = sessionStorage.getItem('github_code')
       if (usedCode === code) {
-        setStatus('Authorization code already used. Please try logging in again.')
+        setError('Authorization code already used')
+        setStatus('Please try logging in again')
         setTimeout(() => router.push('/'), 2000)
         return
       }
@@ -49,7 +61,7 @@ function AuthCallbackContent() {
         throw new Error('Failed to authenticate with GitHub')
       }
 
-      const { user, accessToken } = await response.json()
+      const { user, accessToken }: AuthResponse = await response.json()
       
       setStatus('Creating user session...')
       
@@ -71,35 +83,48 @@ function AuthCallbackContent() {
       }
 
       // Store user session in localStorage
-      localStorage.setItem('github_user', JSON.stringify({
+      const userSession = {
         id: user.id.toString(),
         login: user.login,
         avatar_url: user.avatar_url,
+        name: user.name,
+        email: user.email,
         access_token: accessToken
-      }))
+      }
+      
+      localStorage.setItem('github_user', JSON.stringify(userSession))
 
       setStatus('Success! Redirecting...')
       router.push('/')
       
     } catch (error) {
       console.error('Auth callback error:', error)
-      setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMessage)
+      setStatus('Authentication failed')
       
       setTimeout(() => {
         router.push('/')
       }, 3000)
     }
-  }
+  }, [searchParams, router])
+
+  useEffect(() => {
+    handleCallback()
+  }, [handleCallback])
 
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
         <p className="text-lg">{status}</p>
-        {status.startsWith('Error:') && (
-          <p className="text-sm text-muted-foreground mt-2">
-            Redirecting to home page in a few seconds...
-          </p>
+        {error && (
+          <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Redirecting to home page in a few seconds...
+            </p>
+          </div>
         )}
       </div>
     </div>

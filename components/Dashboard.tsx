@@ -72,9 +72,11 @@ export function Dashboard({ user }: DashboardProps) {
   const handleLogout = useCallback(async () => {
     try {
       localStorage.removeItem('github_user')
+      sessionStorage.clear()
       window.location.reload()
     } catch (error) {
       console.error('Logout failed:', error)
+      window.location.reload()
     }
   }, [])
 
@@ -110,8 +112,10 @@ export function Dashboard({ user }: DashboardProps) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg">Connecting to GitHub...</p>
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent"></div>
+            <p className="text-lg">Connecting to GitHub...</p>
+          </div>
         </div>
       </div>
     )

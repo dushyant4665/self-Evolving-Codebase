@@ -1,24 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { GitHubLogin } from '@/components/GitHubLogin'
 import { Dashboard } from '@/components/Dashboard'
 
+interface GitHubUser {
+  access_token: string
+  login: string
+  avatar_url: string
+  name?: string
+  email?: string
+}
+
 export default function Home() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<GitHubUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       // Check localStorage for GitHub user
       const githubUser = localStorage.getItem('github_user')
       if (githubUser) {
-        const userData = JSON.parse(githubUser)
+        const userData = JSON.parse(githubUser) as GitHubUser
         setUser(userData)
       }
     } catch (error) {
@@ -26,12 +30,19 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    checkUser()
+  }, [checkUser])
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent"></div>
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
       </div>
     )
   }

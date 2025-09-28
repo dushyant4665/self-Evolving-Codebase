@@ -1,13 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+interface GitHubTokenResponse {
+  access_token?: string
+  error?: string
+  error_description?: string
+}
+
+interface GitHubUser {
+  id: number
+  login: string
+  name?: string
+  email?: string
+  avatar_url: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { code } = await request.json()
+    const body = await request.json()
+    const { code } = body
 
-    if (!code) {
+    if (!code || typeof code !== 'string') {
       return NextResponse.json(
-        { error: 'Authorization code is required' },
+        { error: 'Valid authorization code is required' },
         { status: 400 }
+      )
+    }
+
+    if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET) {
+      return NextResponse.json(
+        { error: 'GitHub OAuth not configured' },
+        { status: 500 }
       )
     }
 
@@ -29,7 +51,7 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to exchange code for token')
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData: GitHubTokenResponse = await tokenResponse.json()
     
     if (tokenData.error) {
       console.error('GitHub token error:', tokenData)
@@ -48,14 +70,17 @@ export async function POST(request: NextRequest) {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Self-Evolving-Codebase'
       },
     })
 
     if (!userResponse.ok) {
-      throw new Error('Failed to fetch user information')
+      const errorText = await userResponse.text()
+      console.error('GitHub user API error:', errorText)
+      throw new Error(`Failed to fetch user information: ${userResponse.status}`)
     }
 
-    const user = await userResponse.json()
+    const user: GitHubUser = await userResponse.json()
 
     return NextResponse.json({
       user,

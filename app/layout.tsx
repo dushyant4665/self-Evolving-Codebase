@@ -3,11 +3,22 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Github } from 'lucide-react'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter'
+})
 
 export const metadata: Metadata = {
   title: 'Self-Evolving Codebase',
   description: 'AI-powered self-improving software system',
+  keywords: ['AI', 'code evolution', 'GitHub', 'automation', 'code improvement'],
+  authors: [{ name: 'Dushyant' }],
+  openGraph: {
+    title: 'Self-Evolving Codebase',
+    description: 'AI-powered self-improving software system',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
@@ -16,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={inter.variable}>
+      <body className={`${inter.className} antialiased`}>
         <div className="min-h-screen bg-background">
           {children}
         </div>
@@ -27,7 +38,7 @@ export default function RootLayout({
           href="https://github.com/dushyant4665/self-Evolving-Codebase"
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed top-4 right-4 z-50 p-3 bg-background border border-border rounded-full shadow-lg hover:bg-accent transition-colors"
+          className="fixed top-4 right-4 z-50 p-3 bg-background border border-border rounded-full shadow-lg hover:bg-accent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="View on GitHub"
         >
           <Github className="h-6 w-6 text-foreground" />

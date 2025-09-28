@@ -80,74 +80,55 @@ export class AIService {
     console.log('Has Tests:', fileAnalysis.hasTests)
     console.log('File Types:', fileAnalysis.fileTypes)
 
-    // DEEP CODE SCANNING - LIKE CURSOR AI
-    console.log('🔍 DEEP SCANNING ALL FILES:', files.map(f => f.path))
+    // FORCE REAL CODE FILE ANALYSIS - NO CONFIG FILES EVER
+    console.log('🔍 ALL FILES RECEIVED:', files.map(f => f.path))
     
-    // SCAN ALL FOLDERS RECURSIVELY - NO EXCLUSIONS
-    const allCodeFiles = files.filter(f => {
+    const codeFiles = files.filter(f => {
       const path = f.path.toLowerCase()
       const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
-      console.log(`📁 Scanning: ${f.path}, isCodeFile: ${isCodeFile}`)
-      return isCodeFile
+      const isNotConfig = !path.includes('readme') &&
+                         !path.includes('.md') &&
+                         !path.includes('package.json') &&
+                         !path.includes('tsconfig') &&
+                         !path.includes('next.config') &&
+                         !path.includes('tailwind.config') &&
+                         !path.includes('postcss.config') &&
+                         !path.includes('.gitignore') &&
+                         !path.includes('config')
+      
+      console.log(`File: ${f.path}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
+      return isCodeFile && isNotConfig
     })
     
-    console.log('📂 ALL CODE FILES FOUND:', allCodeFiles.map(f => f.path))
+    console.log('🔍 FORCING REAL CODE FILES ONLY:', codeFiles.map(f => f.path))
+    console.log('🚫 BLOCKED CONFIG FILES:', files.filter(f => 
+      f.path.includes('config') || f.path.includes('package.json') || f.path.includes('tsconfig') || f.path.includes('next.config')
+    ).map(f => f.path))
     
-    if (allCodeFiles.length > 0) {
-      // DEEP ANALYSIS - PRIORITIZE BY FOLDER AND ISSUES
-      let targetFile = null
+    if (codeFiles.length > 0) {
+      // PRIORITY: Files with console statements > React components > Largest files
+      let targetFile = codeFiles.find(f => f.content.includes('console.log') || f.content.includes('console.error'))
       
-      // 1. PRIORITY: app/ folder files (main application code)
-      targetFile = allCodeFiles.find(f => f.path.startsWith('app/'))
-      if (targetFile) {
-        console.log('🎯 SELECTED APP FILE:', targetFile.path)
-      }
-      
-      // 2. PRIORITY: components/ folder files
       if (!targetFile) {
-        targetFile = allCodeFiles.find(f => f.path.startsWith('components/'))
-        if (targetFile) {
-          console.log('🎯 SELECTED COMPONENT FILE:', targetFile.path)
-        }
-      }
-      
-      // 3. PRIORITY: lib/ folder files
-      if (!targetFile) {
-        targetFile = allCodeFiles.find(f => f.path.startsWith('lib/'))
-        if (targetFile) {
-          console.log('🎯 SELECTED LIB FILE:', targetFile.path)
-        }
-      }
-      
-      // 4. FALLBACK: Any code file with issues
-      if (!targetFile) {
-        targetFile = allCodeFiles.find(f => 
-          f.content.includes('console.log') || 
-          f.content.includes('console.error') ||
-          f.content.includes('any') ||
-          f.content.includes('TODO') ||
-          f.content.includes('FIXME')
+        // Find React components with potential issues
+        targetFile = codeFiles.find(f => 
+          f.path.includes('components/') && 
+          (f.content.includes('any') || f.content.includes('useState') || f.content.includes('useEffect'))
         )
-        if (targetFile) {
-          console.log('🎯 SELECTED FILE WITH ISSUES:', targetFile.path)
-        }
       }
       
-      // 5. FINAL FALLBACK: Largest code file
       if (!targetFile) {
-        targetFile = allCodeFiles.sort((a, b) => b.content.length - a.content.length)[0]
-        console.log('🎯 SELECTED LARGEST FILE:', targetFile.path)
+        // Pick largest code file
+        targetFile = codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
       }
       
-      // DEEP CODE ANALYSIS
-      const issues = this.analyzeCodeIssues(targetFile)
-      console.log('🔍 CODE ISSUES FOUND:', issues)
+      console.log('🎯 SELECTED TARGET FILE:', targetFile.path)
       
       suggestion = {
         type: 'refactor',
         title: `Deep code analysis: ${targetFile.path}`,
-        description: `Comprehensive line-by-line analysis of ${targetFile.path}. Found issues: ${issues.join(', ')}. Fixing code quality, performance, and adding proper error handling.`,
-        reasoning: `${targetFile.path} needs deep analysis and improvements. Issues detected: ${issues.join(', ')}. Applying real code fixes and optimizations.`,
+        description: `Comprehensive analysis of ${targetFile.path} to find and fix real code issues, improve performance, and add proper error handling`,
+        reasoning: `${targetFile.path} needs thorough code analysis and improvements - checking for console statements, type issues, performance problems, and missing error handling`,
         files: [{
           path: targetFile.path,
           action: 'modify',
@@ -616,51 +597,6 @@ interface ${componentName}Props {
     return [...usedImports, '', ...otherLines].join('\n')
   }
   
-  private analyzeCodeIssues(file: { path: string; content: string }): string[] {
-    const issues: string[] = []
-    const content = file.content
-    
-    // Check for console statements
-    if (content.includes('console.log') || content.includes('console.error')) {
-      issues.push('console statements found')
-    }
-    
-    // Check for TypeScript any types
-    if (content.includes(': any') || content.includes('any[]')) {
-      issues.push('TypeScript any types found')
-    }
-    
-    // Check for missing error handling
-    if (content.includes('async') && !content.includes('try') && !content.includes('catch')) {
-      issues.push('missing error handling in async functions')
-    }
-    
-    // Check for long functions
-    const lines = content.split('\n')
-    if (lines.length > 50) {
-      issues.push('long function/file detected')
-    }
-    
-    // Check for missing React imports
-    if (content.includes('useState') || content.includes('useEffect')) {
-      if (!content.includes("import React") && !content.includes("from 'react'")) {
-        issues.push('missing React imports')
-      }
-    }
-    
-    // Check for hardcoded values
-    if (content.includes('localhost') || content.includes('127.0.0.1')) {
-      issues.push('hardcoded localhost URLs')
-    }
-    
-    // Check for TODO/FIXME comments
-    if (content.includes('TODO') || content.includes('FIXME')) {
-      issues.push('TODO/FIXME comments found')
-    }
-    
-    return issues.length > 0 ? issues : ['general code improvements needed']
-  }
-
   private formatCode(content: string): string {
     // Basic formatting improvements
     content = content.replace(/\n\n\n+/g, '\n\n') // Remove excessive newlines

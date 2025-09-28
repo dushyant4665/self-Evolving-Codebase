@@ -3,6 +3,20 @@ import { AIService } from '@/lib/ai'
 import { GitHubService } from '@/lib/github'
 import { supabase } from '@/lib/supabase'
 
+interface EvolutionRequest {
+  repository: {
+    owner: {
+      login: string
+    }
+    name: string
+    full_name: string
+    description?: string
+    language?: string
+  }
+  filePaths: string[]
+  accessToken: string
+}
+
 function getMockContent(filePath: string): string {
   const fileName = filePath.toLowerCase()
   
@@ -71,7 +85,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/evolution/suggest - Request received')
     
-    const body = await request.json()
+    const body: EvolutionRequest = await request.json()
     console.log('Request body:', body)
     
     const { repository, filePaths, accessToken } = body
@@ -80,6 +94,13 @@ export async function POST(request: NextRequest) {
       console.error('Missing parameters:', { repository: !!repository, filePaths: !!filePaths, accessToken: !!accessToken })
       return NextResponse.json(
         { error: 'Missing required parameters' },
+        { status: 400 }
+      )
+    }
+
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+      return NextResponse.json(
+        { error: 'filePaths must be a non-empty array' },
         { status: 400 }
       )
     }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { X, Check, XIcon, Eye, Code, FileText } from 'lucide-react'
 
 interface SuggestionFile {
@@ -57,6 +57,18 @@ export function CodePreviewModal({ suggestion, onAccept, onReject, onClose, isCr
     if (event.key === 'Escape') {
       onClose()
     }
+  }, [onClose])
+
+  // Handle escape key globally
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [onClose])
 
   return (
@@ -182,7 +194,7 @@ export function CodePreviewModal({ suggestion, onAccept, onReject, onClose, isCr
             <button
               onClick={onReject}
               disabled={isCreatingPR}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground bg-muted hover:bg-accent border border-border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground bg-muted hover:bg-accent border border-border rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <XIcon className="h-4 w-4 mr-2" />
               Reject
@@ -190,11 +202,11 @@ export function CodePreviewModal({ suggestion, onAccept, onReject, onClose, isCr
             <button
               onClick={onAccept}
               disabled={isCreatingPR}
-              className="inline-flex items-center px-6 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-6 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               {isCreatingPR ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground mr-2"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent mr-2"></div>
                   Creating PR...
                 </>
               ) : (

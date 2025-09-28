@@ -50,53 +50,45 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     let filesToAnalyze = selectedFiles.length > 0 ? selectedFiles : []
     
     if (filesToAnalyze.length === 0) {
-      // HARD FILTER - ONLY ALLOW SPECIFIC CODE DIRECTORIES
+      // Find code files automatically - NO README, NO CONFIG FILES
       console.log('🔍 Available files:', files.map(f => ({ name: f.name, path: f.path })))
       
-      const allowedPaths = [
-        'components/',
-        'app/',
-        'lib/',
-        'src/',
-        'pages/',
-        'utils/',
-        'hooks/',
-        'types/'
-      ]
-      
       const codeFiles = files.filter(file => {
-        const path = (file.path || file.name || '').toLowerCase()
+        const name = (file.name || file.path || '').toLowerCase()
+        const isCodeFile = (
+          name.endsWith('.ts') || name.endsWith('.tsx') || 
+          name.endsWith('.js') || name.endsWith('.jsx') ||
+          name.endsWith('.py') || name.endsWith('.java') ||
+          name.endsWith('.cpp') || name.endsWith('.c')
+        )
+        const isNotConfig = !name.includes('readme') && 
+                           !name.includes('.md') && 
+                           !name.includes('package.json') &&
+                           !name.includes('tsconfig') &&
+                           !name.includes('next.config') &&
+                           !name.includes('tailwind.config') &&
+                           !name.includes('postcss.config') &&
+                           !name.includes('.gitignore')
         
-        // MUST be in allowed directories
-        const isInAllowedDir = allowedPaths.some(allowedPath => path.startsWith(allowedPath))
-        
-        // MUST be code file
-        const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
-        
-        // MUST NOT be config
-        const isNotConfig = !path.includes('config') && 
-                           !path.includes('package') && 
-                           !path.includes('tsconfig') && 
-                           !path.includes('next.config') && 
-                           !path.includes('tailwind') && 
-                           !path.includes('postcss') && 
-                           !path.includes('gitignore') && 
-                           !path.includes('readme') && 
-                           !path.includes('.md') &&
-                           !path.includes('vercel') &&
-                           !path.includes('env')
-        
-        const isValid = isInAllowedDir && isCodeFile && isNotConfig
-        console.log(`File: ${path}, isInAllowedDir: ${isInAllowedDir}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}, VALID: ${isValid}`)
-        return isValid
+        console.log(`File: ${name}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
+        return isCodeFile && isNotConfig
       }).map(f => f.path || f.name)
       
-      console.log('🎯 VALID CODE FILES:', codeFiles)
+      console.log('🎯 Selected code files:', codeFiles)
       filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : []
       
       if (filesToAnalyze.length === 0) {
-        console.log('🚨 NO VALID CODE FILES FOUND - Available files:', files.map(f => f.path))
-        // Don't fallback to any files - force user to select proper files
+        // Force select ANY code files from repository
+        const allCodeFiles = files.filter(file => {
+          const name = (file.name || file.path || '').toLowerCase()
+          return name && (
+            name.endsWith('.ts') || name.endsWith('.tsx') || 
+            name.endsWith('.js') || name.endsWith('.jsx')
+          )
+        }).map(f => f.path || f.name)
+        
+        console.log('🚨 Fallback code files:', allCodeFiles)
+        filesToAnalyze = allCodeFiles.slice(0, 3) // Take first 3 code files
       }
     }
     
