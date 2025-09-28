@@ -81,18 +81,24 @@ export class AIService {
     console.log('File Types:', fileAnalysis.fileTypes)
 
     // FORCE REAL CODE FILE ANALYSIS - NO CONFIG FILES EVER
-    const codeFiles = files.filter(f => 
-      (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx')) &&
-      !f.path.toLowerCase().includes('readme') &&
-      !f.path.toLowerCase().includes('.md') &&
-      !f.path.toLowerCase().includes('package.json') &&
-      !f.path.toLowerCase().includes('tsconfig') &&
-      !f.path.toLowerCase().includes('next.config') &&
-      !f.path.toLowerCase().includes('tailwind.config') &&
-      !f.path.toLowerCase().includes('postcss.config') &&
-      !f.path.toLowerCase().includes('.gitignore') &&
-      !f.path.toLowerCase().includes('config')
-    )
+    console.log('🔍 ALL FILES RECEIVED:', files.map(f => f.path))
+    
+    const codeFiles = files.filter(f => {
+      const path = f.path.toLowerCase()
+      const isCodeFile = path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx')
+      const isNotConfig = !path.includes('readme') &&
+                         !path.includes('.md') &&
+                         !path.includes('package.json') &&
+                         !path.includes('tsconfig') &&
+                         !path.includes('next.config') &&
+                         !path.includes('tailwind.config') &&
+                         !path.includes('postcss.config') &&
+                         !path.includes('.gitignore') &&
+                         !path.includes('config')
+      
+      console.log(`File: ${f.path}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
+      return isCodeFile && isNotConfig
+    })
     
     console.log('🔍 FORCING REAL CODE FILES ONLY:', codeFiles.map(f => f.path))
     console.log('🚫 BLOCKED CONFIG FILES:', files.filter(f => 

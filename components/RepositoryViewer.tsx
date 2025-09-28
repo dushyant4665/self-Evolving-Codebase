@@ -47,29 +47,44 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     let filesToAnalyze = selectedFiles.length > 0 ? selectedFiles : []
     
     if (filesToAnalyze.length === 0) {
-      // Find code files automatically - NO README
+      // Find code files automatically - NO README, NO CONFIG FILES
+      console.log('🔍 Available files:', files.map(f => ({ name: f.name, path: f.path })))
+      
       const codeFiles = files.filter(file => {
-        const name = file.name.toLowerCase()
-        return (
+        const name = (file.name || file.path || '').toLowerCase()
+        const isCodeFile = (
           name.endsWith('.ts') || name.endsWith('.tsx') || 
           name.endsWith('.js') || name.endsWith('.jsx') ||
           name.endsWith('.py') || name.endsWith('.java') ||
           name.endsWith('.cpp') || name.endsWith('.c')
-        ) && !name.includes('readme') && !name.includes('.md')
-      }).map(f => f.path)
+        )
+        const isNotConfig = !name.includes('readme') && 
+                           !name.includes('.md') && 
+                           !name.includes('package.json') &&
+                           !name.includes('tsconfig') &&
+                           !name.includes('next.config') &&
+                           !name.includes('tailwind.config') &&
+                           !name.includes('postcss.config') &&
+                           !name.includes('.gitignore')
+        
+        console.log(`File: ${name}, isCodeFile: ${isCodeFile}, isNotConfig: ${isNotConfig}`)
+        return isCodeFile && isNotConfig
+      }).map(f => f.path || f.name)
       
+      console.log('🎯 Selected code files:', codeFiles)
       filesToAnalyze = codeFiles.length > 0 ? codeFiles.slice(0, 5) : []
       
       if (filesToAnalyze.length === 0) {
-        // Force select actual code files from repository
+        // Force select ANY code files from repository
         const allCodeFiles = files.filter(file => {
-          const name = file.name || file.path
+          const name = (file.name || file.path || '').toLowerCase()
           return name && (
             name.endsWith('.ts') || name.endsWith('.tsx') || 
             name.endsWith('.js') || name.endsWith('.jsx')
           )
         }).map(f => f.path || f.name)
         
+        console.log('🚨 Fallback code files:', allCodeFiles)
         filesToAnalyze = allCodeFiles.slice(0, 3) // Take first 3 code files
       }
     }
