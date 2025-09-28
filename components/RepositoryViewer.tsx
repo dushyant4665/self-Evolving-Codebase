@@ -388,11 +388,24 @@ ${suggestion.reasoning}
           .eq('id', suggestion.logId)
       }
 
-      setEvolutionStatus('Pull request created successfully!')
+      setEvolutionStatus('Pull request created successfully! Redirecting to GitHub...')
       
-      // Open PR in new tab immediately
+      // Open PR in new tab immediately and redirect to GitHub
       if (pr.html_url) {
+        console.log(`🚀 Opening PR: ${pr.html_url}`)
         window.open(pr.html_url, '_blank')
+        
+        // Show countdown and redirect to GitHub PR for easy merge
+        let countdown = 3
+        const countdownInterval = setInterval(() => {
+          setEvolutionStatus(`Pull request created! Redirecting to GitHub in ${countdown} seconds...`)
+          countdown--
+          
+          if (countdown <= 0) {
+            clearInterval(countdownInterval)
+            window.location.href = pr.html_url
+          }
+        }, 1000)
       }
       
       setShowPreview(false)
