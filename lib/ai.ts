@@ -123,40 +123,11 @@ export class AIService {
           }]
         }
       }
-    } else if (fileAnalysis.missingFiles.length > 0) {
-      // Add missing important files
-      const missingFile = fileAnalysis.missingFiles[0]
-      suggestion = {
-        type: 'feature',
-        title: `Add missing ${missingFile}`,
-        description: `Create ${missingFile} to improve project structure and development workflow`,
-        reasoning: `${missingFile} is essential for ${fileAnalysis.mainLanguage} projects to manage dependencies and project configuration`,
-        files: [{
-          path: missingFile,
-          action: 'create',
-          content: this.generateFileContent(missingFile, fileAnalysis)
-        }]
-      }
-    } else if (!fileAnalysis.hasTests) {
-      // Add tests if missing
-      const mainFile = this.findMainFile(files, fileAnalysis)
-      if (mainFile) {
-        suggestion = {
-          type: 'feature',
-          title: `Add unit tests for ${mainFile.path}`,
-          description: `Create comprehensive unit tests to ensure code reliability and catch bugs early`,
-          reasoning: `Testing is crucial for maintaining code quality in ${fileAnalysis.mainLanguage} projects`,
-          files: [{
-            path: this.getTestFilePath(mainFile.path, fileAnalysis),
-            action: 'create',
-            content: this.generateTestContent(mainFile, fileAnalysis)
-          }]
-        }
-      } else {
-        suggestion = this.getDefaultSuggestion(fileAnalysis, files)
-      }
+    } else if (false) {
+      // DISABLED: No more config file suggestions
+      // Force code file improvements only
     } else {
-      // Suggest performance or feature improvements
+      // ALWAYS fall back to code file improvements
       suggestion = this.getDefaultSuggestion(fileAnalysis, files)
     }
 
@@ -770,31 +741,52 @@ interface ${componentName}Props {
   }
 
   private getDefaultSuggestion(analysis: any, files: { path: string; content: string }[]): CodeSuggestion {
-    // FORCE ACTUAL CODE FILE IMPROVEMENTS - NO CONFIG FILES
+    // FORCE ACTUAL CODE FILE IMPROVEMENTS - ABSOLUTELY NO CONFIG FILES
     const codeFiles = files.filter(f => 
       !f.path.toLowerCase().includes('readme') &&
       !f.path.toLowerCase().includes('.md') &&
       !f.path.toLowerCase().includes('package.json') &&
       !f.path.toLowerCase().includes('tsconfig.json') &&
+      !f.path.toLowerCase().includes('.gitignore') &&
+      !f.path.toLowerCase().includes('next.config') &&
+      !f.path.toLowerCase().includes('tailwind.config') &&
+      !f.path.toLowerCase().includes('postcss.config') &&
       (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx'))
     )
     
-    console.log('🔍 Default suggestion - forcing code files:', codeFiles.map(f => f.path))
+    console.log('🔍 FORCING REAL CODE FILES ONLY:', codeFiles.map(f => f.path))
+    console.log('🚫 BLOCKED CONFIG FILES:', files.filter(f => 
+      f.path.includes('tsconfig') || f.path.includes('package.json') || f.path.includes('config')
+    ).map(f => f.path))
     
     if (codeFiles.length > 0) {
-      // Pick file with console statements or largest file
-      const targetFile = codeFiles.find(f => f.content.includes('console.')) || 
-                        codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
+      // PRIORITY: Files with issues > Components > Largest files
+      let targetFile = codeFiles.find(f => f.content.includes('console.log') || f.content.includes('console.error'))
+      
+      if (!targetFile) {
+        // Find React components with potential issues
+        targetFile = codeFiles.find(f => 
+          f.path.includes('components/') && 
+          (f.content.includes('any') || f.content.includes('useState') || f.content.includes('useEffect'))
+        )
+      }
+      
+      if (!targetFile) {
+        // Pick largest code file
+        targetFile = codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
+      }
+      
+      console.log('🎯 SELECTED TARGET FILE:', targetFile.path)
       
       return {
         type: 'refactor',
-        title: `Clean up and improve ${targetFile.path}`,
-        description: `Remove console statements, fix TypeScript types, organize imports, and improve code structure in ${targetFile.path}`,
-        reasoning: `${targetFile.path} needs comprehensive cleanup - found console statements, type issues, or structural improvements needed`,
+        title: `Fix code issues in ${targetFile.path}`,
+        description: `Remove console statements, improve TypeScript types, add error handling, and optimize React performance in ${targetFile.path}`,
+        reasoning: `${targetFile.path} has code quality issues that need fixing - console statements, type issues, or performance problems`,
         files: [{
           path: targetFile.path,
           action: 'modify',
-          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Comprehensive code improvements needed`)
+          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Fix code quality issues`)
         }]
       }
     }
