@@ -30,7 +30,9 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
   const loadRepositoryFiles = async () => {
     try {
       setLoading(true)
+      setEvolutionStatus('🔍 Loading repository files...')
       console.log('🔍 Loading repository files for:', repository.full_name)
+      
       const contents = await githubService.getRepositoryContents(
         repository.owner.login,
         repository.name
@@ -38,12 +40,32 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
       const fileList = Array.isArray(contents) ? contents : [contents]
       console.log('📁 Loaded files:', fileList.map(f => ({ name: f.name, path: f.path, type: f.type })))
       
+      setEvolutionStatus('📁 Scanning subdirectories...')
+      
       // Recursively load files from subdirectories
       const allFiles = await loadAllFilesRecursively(fileList, repository.owner.login, repository.name)
       console.log('📁 All files (including subdirectories):', allFiles.map(f => ({ name: f.name, path: f.path, type: f.type })))
+      
+      setEvolutionStatus('🔍 Analyzing code files...')
+      
+      // Count different file types
+      const codeFiles = allFiles.filter(f => {
+        const path = (f.path || f.name || '').toLowerCase()
+        return path.endsWith('.ts') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.jsx') ||
+               path.endsWith('.py') || path.endsWith('.java') || path.endsWith('.cpp') || path.endsWith('.c') ||
+               path.endsWith('.go') || path.endsWith('.rs') || path.endsWith('.html') || path.endsWith('.css')
+      })
+      
+      const srcFiles = allFiles.filter(f => (f.path || f.name || '').toLowerCase().startsWith('src/'))
+      const componentFiles = allFiles.filter(f => (f.path || f.name || '').toLowerCase().startsWith('components/'))
+      const appFiles = allFiles.filter(f => (f.path || f.name || '').toLowerCase().startsWith('app/'))
+      
+      setEvolutionStatus(`✅ Found ${allFiles.length} files (${codeFiles.length} code files, ${srcFiles.length} in src/, ${componentFiles.length} in components/, ${appFiles.length} in app/)`)
+      
       setFiles(allFiles)
     } catch (error) {
       console.error('Failed to load repository files:', error)
+      setEvolutionStatus('❌ Failed to load repository files')
     } finally {
       setLoading(false)
     }
@@ -59,6 +81,7 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
       if (file.type === 'dir') {
         try {
           console.log(`🔍 Loading directory: ${file.path}`)
+          setEvolutionStatus(`📁 Scanning ${file.path}...`)
           const dirContents = await githubService.getRepositoryContents(owner, repo, file.path)
           const dirFiles = Array.isArray(dirContents) ? dirContents : [dirContents]
           const subFiles = await loadAllFilesRecursively(dirFiles, owner, repo)
@@ -171,13 +194,15 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     console.log('✅ FILES TO ANALYZE:', filesToAnalyze)
 
     setEvolving(true)
-    setEvolutionStatus('Analyzing codebase...')
+      setEvolutionStatus('🔍 Analyzing codebase...')
 
     try {
       // Get file contents
+      setEvolutionStatus(`📖 Reading ${filesToAnalyze.length} files...`)
       const fileContents = await Promise.all(
-        filesToAnalyze.map(async (filePath) => {
+        filesToAnalyze.map(async (filePath, index) => {
           try {
+            setEvolutionStatus(`📖 Reading file ${index + 1}/${filesToAnalyze.length}: ${filePath}`)
             const { content } = await githubService.getFileContent(
               repository.owner.login,
               repository.name,
@@ -191,7 +216,7 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
         })
       )
 
-      setEvolutionStatus('Generating AI suggestions...')
+      setEvolutionStatus('🤖 Generating AI suggestions...')
       
       // Get access token
       let accessToken = user?.access_token
