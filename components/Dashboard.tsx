@@ -31,8 +31,8 @@ interface Repository {
 interface UserProfile {
   login: string
   avatar_url: string
-  name?: string
-  email?: string
+  name?: string | null
+  email?: string | null
 }
 
 interface DashboardProps {
