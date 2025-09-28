@@ -211,28 +211,28 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     
     console.log('✅ FILES TO ANALYZE:', filesToAnalyze)
 
-      setEvolving(true)
+    setEvolving(true)
       setEvolutionStatus('🔍 Analyzing codebase...')
 
-      try {
-        // Get file contents
+    try {
+      // Get file contents
         setEvolutionStatus(`📖 Reading ${filesToAnalyze.length} files...`)
-        const fileContents = await Promise.all(
+      const fileContents = await Promise.all(
           filesToAnalyze.map(async (filePath, index) => {
-            try {
+          try {
               setEvolutionStatus(`📖 Reading file ${index + 1}/${filesToAnalyze.length}: ${filePath}`)
-              const { content } = await githubService.getFileContent(
-                repository.owner.login,
-                repository.name,
-                filePath
-              )
-              return { path: filePath, content }
-            } catch (error) {
-              console.error(`Failed to get content for ${filePath}:`, error)
-              return { path: filePath, content: '// Failed to load content' }
-            }
-          })
-        )
+            const { content } = await githubService.getFileContent(
+              repository.owner.login,
+              repository.name,
+              filePath
+            )
+            return { path: filePath, content }
+          } catch (error) {
+            console.error(`Failed to get content for ${filePath}:`, error)
+            return { path: filePath, content: '// Failed to load content' }
+          }
+        })
+      )
 
         setEvolutionStatus('🤖 Generating AI suggestions...')
       
@@ -502,7 +502,7 @@ ${suggestion.reasoning}
               </div>
             )}
           </div>
-        </div>
+          </div>
         </div>
       </div>
     )

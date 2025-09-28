@@ -38,10 +38,10 @@ export default function RootLayout({
           href="https://github.com/dushyant4665/self-Evolving-Codebase"
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed top-4 right-4 z-50 p-3 bg-background border border-border rounded-full shadow-lg hover:bg-accent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="fixed top-4 right-20 z-40 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-accent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="View on GitHub"
         >
-          <Github className="h-6 w-6 text-foreground" />
+          <Github className="h-5 w-5 text-foreground" />
         </a>
       </body>
     </html>
