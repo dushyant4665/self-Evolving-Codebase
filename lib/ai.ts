@@ -80,227 +80,68 @@ export class AIService {
     console.log('Has Tests:', fileAnalysis.hasTests)
     console.log('File Types:', fileAnalysis.fileTypes)
 
-    // FORCE CODE-BASED SUGGESTIONS ONLY
+    // FORCE REAL CODE FILE ANALYSIS - NO CONFIG FILES EVER
     const codeFiles = files.filter(f => 
+      (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx')) &&
       !f.path.toLowerCase().includes('readme') &&
       !f.path.toLowerCase().includes('.md') &&
-      (f.path.endsWith('.ts') || f.path.endsWith('.tsx') || f.path.endsWith('.js') || f.path.endsWith('.jsx'))
+      !f.path.toLowerCase().includes('package.json') &&
+      !f.path.toLowerCase().includes('tsconfig') &&
+      !f.path.toLowerCase().includes('next.config') &&
+      !f.path.toLowerCase().includes('tailwind.config') &&
+      !f.path.toLowerCase().includes('postcss.config') &&
+      !f.path.toLowerCase().includes('.gitignore') &&
+      !f.path.toLowerCase().includes('config')
     )
     
-    console.log('🔍 Available code files for analysis:', codeFiles.map(f => f.path))
+    console.log('🔍 FORCING REAL CODE FILES ONLY:', codeFiles.map(f => f.path))
+    console.log('🚫 BLOCKED CONFIG FILES:', files.filter(f => 
+      f.path.includes('config') || f.path.includes('package.json') || f.path.includes('tsconfig') || f.path.includes('next.config')
+    ).map(f => f.path))
     
     if (codeFiles.length > 0) {
-      // Always prioritize code quality issues in actual code files
-      const codeFileWithIssues = codeFiles.find(f => 
-        fileAnalysis.codeQualityIssues.some(issue => issue.includes(f.path))
-      )
+      // PRIORITY: Files with console statements > React components > Largest files
+      let targetFile = codeFiles.find(f => f.content.includes('console.log') || f.content.includes('console.error'))
       
-      if (codeFileWithIssues) {
-        const issue = fileAnalysis.codeQualityIssues.find(issue => issue.includes(codeFileWithIssues.path))!
-        suggestion = {
-          type: 'bugfix',
-          title: `Fix code quality in ${codeFileWithIssues.path}`,
-          description: issue,
-          reasoning: `Improving code quality by addressing: ${issue}`,
-          files: [{
-            path: codeFileWithIssues.path,
-            action: 'modify',
-            content: this.fixCodeQualityIssue(codeFileWithIssues, issue)
-          }]
-        }
-      } else {
-        // Pick largest code file for improvement
-        const targetFile = codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
-        suggestion = {
-          type: 'refactor',
-          title: `Improve ${targetFile.path}`,
-          description: `Clean up code and add error handling in ${targetFile.path}`,
-          reasoning: `${targetFile.path} can be improved with better error handling and code cleanup`,
-          files: [{
-            path: targetFile.path,
-            action: 'modify',
-            content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: General code improvements needed`)
-          }]
-        }
+      if (!targetFile) {
+        // Find React components with potential issues
+        targetFile = codeFiles.find(f => 
+          f.path.includes('components/') && 
+          (f.content.includes('any') || f.content.includes('useState') || f.content.includes('useEffect'))
+        )
       }
-    } else if (false) {
-      // DISABLED: No more config file suggestions
-      // Force code file improvements only
-    } else {
-      // ALWAYS fall back to code file improvements
-      suggestion = this.getDefaultSuggestion(fileAnalysis, files)
-    }
-
-    // Fallback to simple suggestions if analysis fails
-    const hasReadme = files.some(f => f.path.toLowerCase().includes('readme'))
-    const hasPackageJson = files.some(f => f.path.toLowerCase().includes('package.json'))
-    const hasTsFiles = files.some(f => f.path.endsWith('.ts') || f.path.endsWith('.tsx'))
-    
-    if (!suggestion && hasPackageJson && !files.some(f => f.path === '.gitignore')) {
-      // Suggest adding .gitignore if package.json exists but .gitignore doesn't
-      suggestion = {
-        type: 'feature',
-        title: 'Add .gitignore File',
-        description: 'Add a comprehensive .gitignore file to exclude unnecessary files from version control.',
-        reasoning: 'The project has a package.json but no .gitignore file. This is essential for Node.js projects to avoid committing node_modules and other build artifacts.',
-        files: [{
-          path: '.gitignore',
-          action: 'create',
-          content: `# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Production builds
-.next/
-out/
-build/
-dist/
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log`
-        }]
+      
+      if (!targetFile) {
+        // Pick largest code file
+        targetFile = codeFiles.sort((a, b) => b.content.length - a.content.length)[0]
       }
-    } else if (hasReadme) {
-      // Suggest improving README if it's too short
-      const readmeFile = files.find(f => f.path.toLowerCase().includes('readme'))
-      if (readmeFile && readmeFile.content.length < 500) {
-        suggestion = {
-          type: 'refactor',
-          title: 'Improve README Documentation',
-          description: 'Enhance the README file with better project description and setup instructions.',
-          reasoning: 'The current README is quite brief. Adding more detailed documentation will help users understand and contribute to the project.',
-          files: [{
-            path: readmeFile.path,
-            action: 'modify',
-            content: `${readmeFile.content}
-
-## Features
-
-- Modern development setup
-- Clean code architecture
-- Well-documented codebase
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (version 14 or higher)
-- npm or yarn package manager
-
-### Installation
-
-1. Clone the repository
-2. Install dependencies: \`npm install\`
-3. Start development server: \`npm run dev\`
-
-## Contributing
-
-1. Fork the project
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request`
-          }]
-        }
-      } else {
-        // Default case for README files that are long enough
-        const firstFile = files[0]
-        suggestion = {
-          type: 'refactor',
-          title: `Improve ${firstFile.path}`,
-          description: `Add better code structure and documentation to ${firstFile.path}.`,
-          reasoning: `Analyzed the file content and found opportunities for improvement in code organization and documentation.`,
-          files: [{
-            path: firstFile.path,
-            action: 'modify',
-            content: `// Enhanced version of ${firstFile.path}
-// Added better documentation and structure
-
-${firstFile.content}
-
-// Additional improvements could be made here based on specific requirements`
-          }]
-        }
-      }
-    } else if (hasTsFiles && !files.some(f => f.path === 'tsconfig.json')) {
-      // Suggest adding tsconfig.json for TypeScript projects
-      suggestion = {
-        type: 'feature',
-        title: 'Add TypeScript Configuration',
-        description: 'Add a comprehensive TypeScript configuration file for better type checking and development experience.',
-        reasoning: 'The project uses TypeScript files but lacks a proper tsconfig.json. This configuration will improve development experience and code quality.',
-        files: [{
-          path: 'tsconfig.json',
-          action: 'create',
-          content: `{
-  "compilerOptions": {
-    "target": "es2017",
-    "lib": ["dom", "dom.iterable", "es6"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-}`
-        }]
-      }
-    } else {
-      // Default improvement suggestion based on file content analysis
-      const firstFile = files[0]
+      
+      console.log('🎯 SELECTED TARGET FILE:', targetFile.path)
+      
       suggestion = {
         type: 'refactor',
-        title: `Improve ${firstFile.path}`,
-        description: `Add better code structure and documentation to ${firstFile.path}.`,
-        reasoning: `Analyzed the file content and found opportunities for improvement in code organization and documentation.`,
+        title: `Deep code analysis: ${targetFile.path}`,
+        description: `Comprehensive analysis of ${targetFile.path} to find and fix real code issues, improve performance, and add proper error handling`,
+        reasoning: `${targetFile.path} needs thorough code analysis and improvements - checking for console statements, type issues, performance problems, and missing error handling`,
         files: [{
-          path: firstFile.path,
+          path: targetFile.path,
           action: 'modify',
-          content: `// Enhanced version of ${firstFile.path}
-// Added better documentation and structure
-
-${firstFile.content}
-
-// Additional improvements could be made here based on specific requirements`
+          content: this.fixCodeQualityIssue(targetFile, `${targetFile.path}: Deep code analysis and real improvements`)
         }]
       }
+    } else {
+      // NO CODE FILES FOUND - This should never happen
+      console.log('🚨 NO CODE FILES FOUND - This should not happen!')
+      suggestion = {
+        type: 'refactor',
+        title: 'No code files found for analysis',
+        description: 'No suitable code files found for analysis. Please ensure the repository contains .ts, .tsx, .js, or .jsx files.',
+        reasoning: 'Unable to find any code files to analyze and improve.',
+        files: []
+      }
     }
+
+    // NO FALLBACK LOGIC - ONLY CODE FILE ANALYSIS
     
     console.log('=== AI SUGGESTION GENERATED ===')
     console.log('Type:', suggestion.type)
