@@ -478,11 +478,31 @@ ${suggestion.reasoning}
     return (
       <div className="space-y-6">
         <div className="border border-border rounded-lg p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-muted rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-muted rounded w-2/3 mb-2"></div>
-            <div className="h-4 bg-muted rounded w-1/2"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4"></div>
+          <h3 className="text-lg font-semibold mb-2">Loading Repository</h3>
+          <p className="text-muted-foreground mb-4">{evolutionStatus}</p>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>🔍 Scanning files and directories...</p>
+            <p>📁 Loading code files for analysis...</p>
+            <p>🤖 Preparing for AI evolution...</p>
+            {files.length > 0 && (
+              <div className="mt-4 p-3 bg-muted/20 rounded-lg">
+                <p className="font-medium">Files Found: {files.length}</p>
+                <div className="text-xs mt-2 max-h-32 overflow-y-auto">
+                  {files.slice(0, 10).map((file, index) => (
+                    <div key={index} className="text-left">
+                      📄 {file.path || file.name}
+                    </div>
+                  ))}
+                  {files.length > 10 && (
+                    <div className="text-muted-foreground">... and {files.length - 10} more files</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+        </div>
         </div>
       </div>
     )
