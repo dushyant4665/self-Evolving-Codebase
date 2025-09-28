@@ -136,14 +136,32 @@ export class AIService {
         }]
       }
     } else {
-      // NO CODE FILES FOUND - This should never happen
-      console.log('🚨 NO CODE FILES FOUND - This should not happen!')
-      suggestion = {
-        type: 'refactor',
-        title: 'No code files found for analysis',
-        description: 'No suitable code files found for analysis. Please ensure the repository contains .ts, .tsx, .js, or .jsx files.',
-        reasoning: 'Unable to find any code files to analyze and improve.',
-        files: []
+      // NO CODE FILES FOUND - Force analysis of any available file
+      console.log('🚨 NO CODE FILES FOUND - Forcing analysis of any file')
+      const anyFile = files.find(f => f.path && f.content)
+      
+      if (anyFile) {
+        console.log('🎯 FORCING ANALYSIS OF ANY FILE:', anyFile.path)
+        suggestion = {
+          type: 'refactor',
+          title: `Analyze ${anyFile.path}`,
+          description: `Forced analysis of ${anyFile.path} to find and fix code issues`,
+          reasoning: `No code files found, analyzing ${anyFile.path} for improvements`,
+          files: [{
+            path: anyFile.path,
+            action: 'modify',
+            content: this.fixCodeQualityIssue(anyFile, `${anyFile.path}: Forced analysis and improvements`)
+          }]
+        }
+      } else {
+        console.log('🚨 NO FILES AT ALL FOUND!')
+        suggestion = {
+          type: 'refactor',
+          title: 'No files found for analysis',
+          description: 'No files found for analysis. Please ensure the repository contains files.',
+          reasoning: 'Unable to find any files to analyze and improve.',
+          files: []
+        }
       }
     }
 

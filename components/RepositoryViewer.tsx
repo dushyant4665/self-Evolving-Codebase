@@ -30,11 +30,14 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
   const loadRepositoryFiles = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Loading repository files for:', repository.full_name)
       const contents = await githubService.getRepositoryContents(
         repository.owner.login,
         repository.name
       )
-      setFiles(Array.isArray(contents) ? contents : [contents])
+      const fileList = Array.isArray(contents) ? contents : [contents]
+      console.log('📁 Loaded files:', fileList.map(f => ({ name: f.name, path: f.path, type: f.type })))
+      setFiles(fileList)
     } catch (error) {
       console.error('Failed to load repository files:', error)
     } finally {
@@ -90,9 +93,12 @@ export function RepositoryViewer({ repository, githubService, user }: Repository
     }
     
     if (filesToAnalyze.length === 0) {
-      alert('No files available to analyze')
+      console.log('🚨 NO FILES TO ANALYZE - Available files:', files.map(f => f.path))
+      alert('No code files available to analyze. Please ensure the repository contains .ts, .tsx, .js, or .jsx files.')
       return
     }
+    
+    console.log('✅ FILES TO ANALYZE:', filesToAnalyze)
 
     setEvolving(true)
     setEvolutionStatus('Analyzing codebase...')
